@@ -69,6 +69,7 @@ export class BusinessCentralClient {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params.toString(),
+      signal: AbortSignal.timeout(10_000),
     })
 
     if (!response.ok) {
@@ -101,6 +102,7 @@ export class BusinessCentralClient {
         Accept: 'application/json',
         ...(options.headers || {}),
       },
+      signal: AbortSignal.timeout(10_000),
     })
 
     if (!response.ok) {

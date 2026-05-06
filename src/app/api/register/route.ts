@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { name, email, password, accountType, companyName, vatNumber } = body
+    const { name, password, accountType, companyName, vatNumber } = body
+    const email = typeof body.email === 'string' ? body.email.toLowerCase().trim() : ''
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: 'Name, email and password are required' }, { status: 400 })

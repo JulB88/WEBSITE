@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
+import type { Role } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 
 // Explicit allowlist — unknown keys are silently ignored
@@ -31,7 +33,7 @@ function maskSecret(value: string) {
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'ADMIN') {
+  if (!session || !hasPermission(session.user.role as Role, 'settings:read')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -49,7 +51,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'ADMIN') {
+  if (!session || !hasPermission(session.user.role as Role, 'settings:write')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

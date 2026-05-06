@@ -48,19 +48,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       },
     })
 
-    // Update price list items if provided
+    // Update price list items if provided — use a transaction so a failed
+    // createMany never leaves the list in a state with no items.
     if (items && Array.isArray(items)) {
-      // Delete all existing items and recreate
-      await prisma.priceListItem.deleteMany({ where: { priceListId: params.id } })
-      if (items.length > 0) {
-        await prisma.priceListItem.createMany({
-          data: items.map((item: any) => ({
-            priceListId: params.id,
-            productId: item.productId,
-            overridePrice: item.overridePrice ?? null,
-          })),
-        })
-      }
+      await prisma.$transaction([
+        prisma.priceListItem.deleteMany({ where: { priceListId: params.id } }),
+        ...(items.length > 0
+          ? [prisma.priceListItem.createMany({
+              data: items.map((item: any) => ({
+                priceListId: params.id,
+                productId: item.productId,
+                overridePrice: item.overridePrice ?? null,
+              })),
+            })]
+          : []),
+      ])
     }
 
     return NextResponse.json(priceList)

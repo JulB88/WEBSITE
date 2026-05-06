@@ -25,6 +25,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (conflict) return NextResponse.json({ error: 'Slug already in use' }, { status: 409 })
   }
 
+  if (parentId && parentId === params.id) {
+    return NextResponse.json({ error: 'A category cannot be its own parent' }, { status: 400 })
+  }
+
   const category = await prisma.category.update({
     where: { id: params.id },
     data: {

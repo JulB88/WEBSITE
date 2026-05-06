@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { getToken } from 'next-auth/jwt'
 import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
+import type { Role } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -36,10 +39,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 // PATCH — dashboard partial update (categoryId, active)
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const token = await import('next-auth/jwt').then(m => m.getToken({ req, secret: process.env.NEXTAUTH_SECRET }))
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const { hasPermission } = await import('@/lib/permissions')
-    if (!hasPermission(token.role as any, 'products:write')) {
+    if (!hasPermission(token.role as Role, 'products:write')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
