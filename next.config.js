@@ -33,7 +33,8 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.tailwindcss.com",
+              // 'unsafe-eval' is required by React in development mode only (stack trace reconstruction)
+              `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''} https://js.stripe.com https://cdn.tailwindcss.com`,
               "frame-src https://js.stripe.com",
               "connect-src 'self' https://api.stripe.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
