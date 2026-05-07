@@ -4,7 +4,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/cart-store'
 import type { Product } from '@/types'
-import Badge from './ui/Badge'
 
 interface ProductCardProps {
   product: Product
@@ -34,10 +33,11 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
+    <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', overflow: 'hidden', transition: 'box-shadow 0.2s' }}
+         className="group hover:shadow-lg">
       {/* Image */}
       <Link href={`/products/${product.id}`} className="block">
-        <div className="relative h-48 bg-gray-100 overflow-hidden">
+        <div style={{ position: 'relative', height: 200, backgroundColor: '#f3f4f6', overflow: 'hidden' }}>
           {product.imageUrl ? (
             <Image
               src={product.imageUrl}
@@ -47,68 +47,80 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
               <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
             </div>
           )}
+          {/* Red top accent bar */}
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: '#e51937' }} />
           {product.stock === 0 && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <span className="text-white font-semibold">Out of Stock</span>
+            <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.1em' }}>Épuisé</span>
+            </div>
+          )}
+          {hasDiscount && (
+            <div style={{ position: 'absolute', top: 12, right: 0, backgroundColor: '#e51937', color: '#fff', padding: '3px 10px', fontSize: '0.7rem', fontWeight: 700 }}>
+              -{Math.round(((product.price - displayPrice) / product.price) * 100)}%
             </div>
           )}
         </div>
       </Link>
 
       {/* Content */}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <Link href={`/products/${product.id}`} className="flex-1">
-            <h3 className="font-semibold text-gray-900 text-sm leading-tight hover:text-primary-600 transition-colors line-clamp-2">
-              {product.name}
-            </h3>
-          </Link>
-          {product.category && (
-            <Badge variant="secondary" className="shrink-0 text-xs">
-              {product.category}
-            </Badge>
-          )}
-        </div>
+      <div style={{ padding: '1rem' }}>
+        {product.category && (
+          <p style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#e51937', marginBottom: '0.35rem' }}>
+            {product.category}
+          </p>
+        )}
+
+        <Link href={`/products/${product.id}`} style={{ textDecoration: 'none' }}>
+          <h3 style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1f2232', lineHeight: 1.3, marginBottom: '0.6rem', textTransform: 'uppercase' }}
+              className="line-clamp-2 hover:text-[#e51937] transition-colors">
+            {product.name}
+          </h3>
+        </Link>
 
         {/* Price */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-lg font-bold text-gray-900">
-            ${displayPrice.toFixed(2)}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <span style={{ fontSize: '1.15rem', fontWeight: 900, color: '#1f2232' }}>
+            {displayPrice.toFixed(2)} $
           </span>
           {hasDiscount && (
-            <span className="text-sm text-gray-400 line-through">
-              ${product.price.toFixed(2)}
+            <span style={{ fontSize: '0.8rem', color: '#9ca3af', textDecoration: 'line-through' }}>
+              {product.price.toFixed(2)} $
             </span>
-          )}
-          {hasDiscount && (
-            <Badge variant="success" className="text-xs">
-              -{Math.round(((product.price - displayPrice) / product.price) * 100)}%
-            </Badge>
           )}
         </div>
 
-        {/* Stock indicator */}
-        <p className="text-xs text-gray-500 mb-3">
-          {product.stock > 10
-            ? 'In stock'
-            : product.stock > 0
-            ? `Only ${product.stock} left`
-            : 'Out of stock'}
+        {/* Stock */}
+        <p style={{ fontSize: '0.7rem', color: '#6b7280', marginBottom: '0.75rem', fontWeight: 500 }}>
+          {product.stock > 10 ? '✓ En stock' : product.stock > 0 ? `Il reste ${product.stock}` : 'Épuisé'}
         </p>
 
         {/* Add to cart */}
         <button
           onClick={handleAddToCart}
           disabled={product.stock === 0}
-          className="w-full bg-primary-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-primary-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+          style={{
+            width: '100%',
+            backgroundColor: product.stock === 0 ? '#e5e7eb' : '#e51937',
+            color: product.stock === 0 ? '#9ca3af' : '#fff',
+            padding: '10px 16px',
+            fontWeight: 700,
+            fontSize: '0.72rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            border: 'none',
+            cursor: product.stock === 0 ? 'not-allowed' : 'pointer',
+            transition: 'background-color 0.2s',
+          }}
+          onMouseEnter={e => { if (product.stock > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#333' }}
+          onMouseLeave={e => { if (product.stock > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#e51937' }}
         >
-          {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+          {product.stock === 0 ? 'Épuisé' : 'Ajouter au panier'}
         </button>
       </div>
     </div>

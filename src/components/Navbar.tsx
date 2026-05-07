@@ -13,111 +13,143 @@ export default function Navbar() {
   const items = useCartStore((state) => state.items)
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
 
+  const linkStyle: React.CSSProperties = {
+    color: '#fff',
+    fontWeight: 500,
+    fontSize: '0.8rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    padding: '0 14px',
+    transition: 'color 0.2s ease',
+    textDecoration: 'none',
+  }
+
   return (
     <>
-      <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+      {/* Top accent bar */}
+      <div style={{ height: '4px', backgroundColor: '#e51937' }} />
+
+      <nav style={{ backgroundColor: '#1f2232', position: 'sticky', top: 0, zIndex: 40 }}>
         <div className="container">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between" style={{ height: '72px' }}>
+
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2">
-              <div className="bg-primary-600 text-white rounded-lg w-8 h-8 flex items-center justify-center font-bold text-sm">
-                BC
+            <Link href="/" className="flex items-center gap-3" style={{ textDecoration: 'none' }}>
+              <div style={{ backgroundColor: '#e51937', width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ color: '#fff', fontWeight: 900, fontSize: '0.9rem', letterSpacing: '0.05em' }}>BC</span>
               </div>
-              <span className="font-bold text-xl text-gray-900">ShopBC</span>
+              <span style={{ color: '#fff', fontWeight: 800, fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                ShopBC
+              </span>
             </Link>
 
-            {/* Desktop Nav Links */}
-            <div className="hidden md:flex items-center gap-6">
-              <Link
-                href="/"
-                className="text-gray-600 hover:text-primary-600 font-medium transition-colors"
-              >
-                Home
-              </Link>
-              <Link
-                href="/products"
-                className="text-gray-600 hover:text-primary-600 font-medium transition-colors"
-              >
-                Products
-              </Link>
-              <Link
-                href="/about"
-                className="text-gray-600 hover:text-primary-600 font-medium transition-colors"
-              >
-                About
-              </Link>
+            {/* Desktop nav links */}
+            <div className="hidden md:flex items-center">
+              {[
+                { href: '/',         label: 'Accueil' },
+                { href: '/products', label: 'Produits' },
+              ].map(({ href, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  style={linkStyle}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
+                >
+                  {label}
+                </Link>
+              ))}
             </div>
 
             {/* Right side */}
-            <div className="flex items-center gap-3">
-              {/* Cart button */}
+            <div className="flex items-center gap-2">
+              {/* Cart */}
               <button
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Open cart"
+                aria-label="Ouvrir le panier"
+                style={{ position: 'relative', padding: '8px', color: '#fff', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 {itemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-primary-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium">
+                  <span style={{
+                    position: 'absolute', top: 0, right: 0,
+                    backgroundColor: '#e51937', color: '#fff',
+                    fontSize: '0.65rem', width: 18, height: 18,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 700,
+                  }}>
                     {itemCount > 9 ? '9+' : itemCount}
                   </span>
                 )}
               </button>
 
-              {/* Auth buttons */}
-              {session ? (
-                <div className="hidden md:flex items-center gap-3">
-                  <Link
-                    href="/account"
-                    className="text-sm text-gray-700 hover:text-primary-600 font-medium transition-colors"
-                  >
-                    {session.user.name || session.user.email}
-                  </Link>
-                  {session.user.role === 'ADMIN' && (
+              {/* Auth — desktop */}
+              <div className="hidden md:flex items-center gap-2">
+                {session ? (
+                  <>
                     <Link
-                      href="/admin"
-                      className="text-sm bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors"
+                      href="/account"
+                      style={{ ...linkStyle, fontSize: '0.75rem' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
                     >
-                      Admin
+                      {session.user.name || session.user.email}
                     </Link>
-                  )}
-                  <button
-                    onClick={() => signOut({ callbackUrl: '/' })}
-                    className="text-sm text-gray-600 hover:text-red-600 font-medium transition-colors"
-                  >
-                    Sign out
-                  </button>
-                </div>
-              ) : (
-                <div className="hidden md:flex items-center gap-2">
-                  <Link
-                    href="/auth/login"
-                    className="text-sm text-gray-600 hover:text-primary-600 font-medium transition-colors px-3 py-1.5"
-                  >
-                    Sign in
-                  </Link>
-                  <Link
-                    href="/auth/register"
-                    className="text-sm bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 transition-colors"
-                  >
-                    Register
-                  </Link>
-                </div>
-              )}
+                    {['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'CUSTOMER_SERVICE'].includes(session.user.role) && (
+                      <Link
+                        href="/dashboard"
+                        style={{ backgroundColor: '#e51937', color: '#fff', padding: '6px 16px', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#333')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#e51937')}
+                      >
+                        Dashboard
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => signOut({ callbackUrl: '/' })}
+                      style={{ ...linkStyle, background: 'none', border: 'none', cursor: 'pointer' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
+                    >
+                      Déconnexion
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/auth/login"
+                      style={linkStyle}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
+                    >
+                      Connexion
+                    </Link>
+                    <Link
+                      href="/auth/register"
+                      style={{ backgroundColor: '#e51937', color: '#fff', padding: '8px 20px', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#333')}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#e51937')}
+                    >
+                      S'inscrire
+                    </Link>
+                  </>
+                )}
+              </div>
 
-              {/* Mobile menu button */}
+              {/* Mobile hamburger */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="md:hidden"
+                style={{ padding: '8px', color: '#fff', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {isMobileMenuOpen ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  )}
+                  {isMobileMenuOpen
+                    ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />}
                 </svg>
               </button>
             </div>
@@ -125,23 +157,30 @@ export default function Navbar() {
 
           {/* Mobile menu */}
           {isMobileMenuOpen && (
-            <div className="md:hidden border-t border-gray-100 py-4 space-y-2">
-              <Link href="/" className="block px-3 py-2 text-gray-700 hover:text-primary-600 font-medium" onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
-              <Link href="/products" className="block px-3 py-2 text-gray-700 hover:text-primary-600 font-medium" onClick={() => setIsMobileMenuOpen(false)}>Products</Link>
-              <Link href="/about" className="block px-3 py-2 text-gray-700 hover:text-primary-600 font-medium" onClick={() => setIsMobileMenuOpen(false)}>About</Link>
-              <div className="border-t border-gray-100 pt-2">
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
+              {[
+                { href: '/',         label: 'Accueil' },
+                { href: '/products', label: 'Produits' },
+              ].map(({ href, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  style={{ display: 'block', padding: '10px 0', color: '#fff', fontWeight: 500, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}
+                >
+                  {label}
+                </Link>
+              ))}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
                 {session ? (
                   <>
-                    <Link href="/account" className="block px-3 py-2 text-gray-700 hover:text-primary-600 font-medium" onClick={() => setIsMobileMenuOpen(false)}>Account</Link>
-                    {session.user.role === 'ADMIN' && (
-                      <Link href="/admin" className="block px-3 py-2 text-gray-700 hover:text-primary-600 font-medium" onClick={() => setIsMobileMenuOpen(false)}>Admin</Link>
-                    )}
-                    <button onClick={() => { signOut({ callbackUrl: '/' }); setIsMobileMenuOpen(false) }} className="block w-full text-left px-3 py-2 text-red-600 font-medium">Sign out</button>
+                    <Link href="/account" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>Mon compte</Link>
+                    <button onClick={() => { signOut({ callbackUrl: '/' }); setIsMobileMenuOpen(false) }} style={{ display: 'block', padding: '8px 0', color: '#e51937', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500 }}>Déconnexion</button>
                   </>
                 ) : (
                   <>
-                    <Link href="/auth/login" className="block px-3 py-2 text-gray-700 hover:text-primary-600 font-medium" onClick={() => setIsMobileMenuOpen(false)}>Sign in</Link>
-                    <Link href="/auth/register" className="block px-3 py-2 text-primary-600 font-medium" onClick={() => setIsMobileMenuOpen(false)}>Register</Link>
+                    <Link href="/auth/login"    onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>Connexion</Link>
+                    <Link href="/auth/register" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#e51937', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none' }}>S'inscrire</Link>
                   </>
                 )}
               </div>

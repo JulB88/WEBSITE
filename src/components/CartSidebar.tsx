@@ -150,16 +150,16 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
             <Link
               href="/checkout"
               onClick={onClose}
-              className="block w-full bg-primary-600 text-white py-3 px-4 rounded-lg text-center font-semibold hover:bg-primary-700 transition-colors"
+              style={{ display: 'block', width: '100%', backgroundColor: '#e51937', color: '#fff', padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.08em', textDecoration: 'none' }}
             >
-              Checkout
+              Commander
             </Link>
             <Link
               href="/cart"
               onClick={onClose}
-              className="block w-full text-center text-sm text-gray-600 hover:text-primary-600 transition-colors"
+              style={{ display: 'block', textAlign: 'center', fontSize: '0.8rem', color: '#6b7280', textDecoration: 'none', paddingTop: '0.25rem' }}
             >
-              View full cart
+              Voir le panier complet
             </Link>
           </div>
         )}
