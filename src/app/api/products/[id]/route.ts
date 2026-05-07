@@ -6,9 +6,12 @@ import { hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+type Context = { params: Promise<{ id: string }> }
+
+export async function GET(req: NextRequest, { params }: Context) {
   try {
-    const product = await prisma.product.findUnique({ where: { id: params.id } })
+    const { id } = await params
+    const product = await prisma.product.findUnique({ where: { id } })
     if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })
 
     const session = await getServerSession(authOptions)
@@ -36,9 +39,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-// PATCH — dashboard partial update (categoryId, active)
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: Context) {
   try {
+    const { id } = await params
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (!hasPermission(token.role as Role, 'products:write')) {
@@ -50,7 +53,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if ('categoryId' in body) data.categoryId = body.categoryId ?? null
     if ('active' in body) data.active = Boolean(body.active)
 
-    const product = await prisma.product.update({ where: { id: params.id }, data })
+    const product = await prisma.product.update({ where: { id }, data })
     return NextResponse.json(product)
   } catch (err: any) {
     console.error('[product PATCH]', err)
@@ -58,23 +61,23 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: Context) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !hasPermission(session.user.role as Role, 'products:write')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const body = await req.json()
     const product = await prisma.product.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: body.name,
         description: body.description,
         price: body.price,
         stock: body.stock,
         imageUrl: body.imageUrl,
-        category: body.category,
         active: body.active,
       },
     })
@@ -86,14 +89,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: Context) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !hasPermission(session.user.role as Role, 'products:write')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await prisma.product.update({ where: { id: params.id }, data: { active: false } })
+    await prisma.product.update({ where: { id }, data: { active: false } })
     return NextResponse.json({ message: 'Product deactivated' })
   } catch (err: any) {
     console.error('[product DELETE]', err)

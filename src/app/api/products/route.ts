@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canAccessDashboard, hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
-import type { Product } from '@prisma/client'
+import type { Product, Prisma } from '@prisma/client'
 
 const MAX_LIMIT = 100
 const FEATURED_LIMIT = 8
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     const categoryId = searchParams.get('categoryId')?.trim() || ''
     const activeParam = searchParams.get('active')
 
-    const where: Parameters<typeof prisma.product.findMany>[0]['where'] = isStaff
+    const where: Prisma.ProductWhereInput = isStaff
       ? (activeParam !== '' && activeParam !== null ? { active: activeParam === 'true' } : {})
       : { active: true }
 

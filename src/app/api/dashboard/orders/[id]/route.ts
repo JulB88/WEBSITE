@@ -5,11 +5,11 @@ import { hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 
 const secret = process.env.NEXTAUTH_SECRET
-
 const VALID_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+type Context = { params: Promise<{ id: string }> }
 
-// GET /api/dashboard/orders/[id]
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: Context) {
+  const { id } = await params
   const token = await getToken({ req, secret })
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!hasPermission(token.role as Role, 'orders:read')) {
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       user: { select: { id: true, email: true, name: true } },
       businessCustomer: { select: { id: true, companyName: true, vatNumber: true } },
@@ -30,8 +30,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json(order)
 }
 
-// PATCH /api/dashboard/orders/[id] — update status or BC order number
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: Context) {
+  const { id } = await params
   const token = await getToken({ req, secret })
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!hasPermission(token.role as Role, 'orders:write')) {
@@ -46,7 +46,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const order = await prisma.order.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(status && { status }),
       ...(bcSalesOrderNo !== undefined && { bcSalesOrderNo }),

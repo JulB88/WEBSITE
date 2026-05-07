@@ -5,9 +5,10 @@ import { hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 
 const secret = process.env.NEXTAUTH_SECRET
+type Context = { params: Promise<{ id: string }> }
 
-// PATCH /api/dashboard/categories/[id]
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: Context) {
+  const { id } = await params
   const token = await getToken({ req, secret })
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!hasPermission(token.role as Role, 'categories:write')) {
@@ -17,7 +18,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json()
   const { name, slug, description, parentId } = body
 
-  const existing = await prisma.category.findUnique({ where: { id: params.id } })
+  const existing = await prisma.category.findUnique({ where: { id } })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   if (slug && slug !== existing.slug) {
@@ -25,12 +26,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (conflict) return NextResponse.json({ error: 'Slug already in use' }, { status: 409 })
   }
 
-  if (parentId && parentId === params.id) {
+  if (parentId && parentId === id) {
     return NextResponse.json({ error: 'A category cannot be its own parent' }, { status: 400 })
   }
 
   const category = await prisma.category.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(name !== undefined && { name }),
       ...(slug !== undefined && { slug }),
@@ -42,8 +43,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json(category)
 }
 
-// DELETE /api/dashboard/categories/[id]
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: Context) {
+  const { id } = await params
   const token = await getToken({ req, secret })
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!hasPermission(token.role as Role, 'categories:write')) {
@@ -51,7 +52,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   }
 
   const existing = await prisma.category.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { _count: { select: { products: true, children: true } } },
   })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -69,6 +70,6 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     )
   }
 
-  await prisma.category.delete({ where: { id: params.id } })
+  await prisma.category.delete({ where: { id } })
   return new NextResponse(null, { status: 204 })
 }

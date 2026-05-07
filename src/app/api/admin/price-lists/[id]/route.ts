@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
+import type { Role } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+type Context = { params: Promise<{ id: string }> }
+
+export async function GET(req: NextRequest, { params }: Context) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !hasPermission(session.user.role as Role, 'pricelists:read')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const priceList = await prisma.priceList.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         priceListItems: { include: { product: true } },
         businessCustomers: { include: { user: { select: { name: true, email: true } } } },
@@ -25,10 +30,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: Context) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !hasPermission(session.user.role as Role, 'pricelists:write')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -36,11 +42,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const { name, discountPercent, isDefault, items } = body
 
     if (isDefault) {
-      await prisma.priceList.updateMany({ where: { isDefault: true, id: { not: params.id } }, data: { isDefault: false } })
+      await prisma.priceList.updateMany({ where: { isDefault: true, id: { not: id } }, data: { isDefault: false } })
     }
 
     const priceList = await prisma.priceList.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(name ? { name } : {}),
         ...(discountPercent !== undefined ? { discountPercent } : {}),
@@ -48,15 +54,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       },
     })
 
-    // Update price list items if provided — use a transaction so a failed
-    // createMany never leaves the list in a state with no items.
     if (items && Array.isArray(items)) {
       await prisma.$transaction([
-        prisma.priceListItem.deleteMany({ where: { priceListId: params.id } }),
+        prisma.priceListItem.deleteMany({ where: { priceListId: id } }),
         ...(items.length > 0
           ? [prisma.priceListItem.createMany({
               data: items.map((item: any) => ({
-                priceListId: params.id,
+                priceListId: id,
                 productId: item.productId,
                 overridePrice: item.overridePrice ?? null,
               })),
@@ -72,14 +76,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: Context) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !hasPermission(session.user.role as Role, 'pricelists:write')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await prisma.priceList.delete({ where: { id: params.id } })
+    await prisma.priceList.delete({ where: { id } })
     return NextResponse.json({ message: 'Price list deleted' })
   } catch (err: any) {
     console.error('[price-list DELETE]', err)

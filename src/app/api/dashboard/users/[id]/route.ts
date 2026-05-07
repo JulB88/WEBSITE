@@ -6,6 +6,7 @@ import type { Role } from '@/lib/permissions'
 import bcrypt from 'bcryptjs'
 
 const secret = process.env.NEXTAUTH_SECRET
+type Context = { params: Promise<{ id: string }> }
 
 const USER_SELECT = {
   id: true,
@@ -27,24 +28,21 @@ const USER_SELECT = {
   _count: { select: { orders: true } },
 } as const
 
-// GET /api/dashboard/users/[id]
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: Context) {
+  const { id } = await params
   const token = await getToken({ req, secret })
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!hasPermission(token.role as Role, 'users:read')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: params.id },
-    select: USER_SELECT,
-  })
+  const user = await prisma.user.findUnique({ where: { id }, select: USER_SELECT })
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(user)
 }
 
-// PATCH /api/dashboard/users/[id] — edit name, email, role, password, businessCustomer
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: Context) {
+  const { id } = await params
   const token = await getToken({ req, secret })
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const actorRole = token.role as Role
@@ -55,10 +53,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json()
   const { name, email, role, password, companyName, vatNumber, discountPercent, priceListId } = body
 
-  const existing = await prisma.user.findUnique({ where: { id: params.id } })
+  const existing = await prisma.user.findUnique({ where: { id } })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  // Role change — privilege escalation check
   if (role && role !== existing.role) {
     const targetRole = role as Role
     if (!canAssignRole(actorRole, targetRole)) {
@@ -72,7 +69,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (role !== undefined) userUpdate.role = role
   if (password) userUpdate.password = await bcrypt.hash(password, 12)
 
-  // Business customer upsert (only for BUSINESS role)
   const finalRole = role ?? existing.role
   if (finalRole === 'BUSINESS' && (companyName !== undefined || vatNumber !== undefined || discountPercent !== undefined || priceListId !== undefined)) {
     userUpdate.businessCustomer = {
@@ -94,7 +90,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const user = await prisma.user.update({
-    where: { id: params.id },
+    where: { id },
     data: userUpdate,
     select: {
       id: true, email: true, name: true, role: true,
@@ -105,8 +101,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json(user)
 }
 
-// DELETE /api/dashboard/users/[id]
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: Context) {
+  const { id } = await params
   const token = await getToken({ req, secret })
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const actorRole = token.role as Role
@@ -114,11 +110,10 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Prevent self-deletion
-  if (params.id === token.sub) {
+  if (id === token.sub) {
     return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
   }
 
-  await prisma.user.delete({ where: { id: params.id } })
+  await prisma.user.delete({ where: { id } })
   return new NextResponse(null, { status: 204 })
 }

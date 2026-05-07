@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
+import type { Role } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+type Context = { params: Promise<{ id: string }> }
+
+export async function GET(req: NextRequest, { params }: Context) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         orderItems: { include: { product: true } },
         user: { select: { name: true, email: true } },
@@ -19,7 +24,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
 
-    if (session.user.role !== 'ADMIN' && order.userId !== session.user.id) {
+    const canViewAll = hasPermission(session.user.role as Role, 'orders:read')
+    if (!canViewAll && order.userId !== session.user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -30,10 +36,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: Context) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !hasPermission(session.user.role as Role, 'orders:write')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -41,10 +48,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const { status, bcSalesOrderNo } = body
 
     const order = await prisma.order.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(status ? { status } : {}),
-        ...(bcSalesOrderNo ? { bcSalesOrderNo } : {}),
+        ...(bcSalesOrderNo !== undefined ? { bcSalesOrderNo } : {}),
       },
     })
 
