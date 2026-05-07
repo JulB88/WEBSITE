@@ -134,7 +134,9 @@ export class BusinessCentralClient {
   }
 
   async fetchItem(itemNo: string): Promise<BCItem> {
-    // Escape single quotes in OData filter values (double them per OData spec)
+    if (!/^[\w\-. ]+$/.test(itemNo)) {
+      throw new Error(`Invalid item number format: ${itemNo}`)
+    }
     const escaped = itemNo.replace(/'/g, "''")
     const data = await this.request<{ value: BCItem[] }>(
       `/items?$filter=number eq '${escaped}'`
@@ -236,7 +238,7 @@ export async function createBCClient(): Promise<BusinessCentralClient> {
   const companyId    = await getSetting('bc_company_id',    'BC_COMPANY_ID')
 
   if (!tenantId || !clientId || !clientSecret || !environment || !companyId) {
-    throw new Error('Business Central is not configured. Go to Admin → Settings to add your credentials.')
+    throw new Error('Business Central integration is not configured.')
   }
 
   return new BusinessCentralClient(tenantId, clientId, clientSecret, environment, companyId)

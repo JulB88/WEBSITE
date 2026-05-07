@@ -23,9 +23,15 @@
     color: #1f2232;
   }
 
-  /* Selection color */
-  ::selection       { background: #e51937; color: #fff; }
-  ::-moz-selection  { background: #e51937; color: #fff; }
+  /* Selection color — sufficient contrast */
+  ::selection       { background: #1f2232; color: #fff; }
+  ::-moz-selection  { background: #1f2232; color: #fff; }
+
+  /* Keyboard focus — visible ring for accessibility */
+  :focus-visible {
+    outline: 3px solid #e51937;
+    outline-offset: 2px;
+  }
 
   a {
     transition: color 0.2s ease;

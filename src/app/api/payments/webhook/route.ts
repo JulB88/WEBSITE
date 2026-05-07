@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     const intent = event.data.object
     try {
       await prisma.order.updateMany({
-        where: { stripePaymentIntentId: intent.id },
+        where: { stripePaymentIntentId: intent.id, status: { not: 'CANCELLED' } },
         data: { status: 'CANCELLED' },
       })
     } catch (err) {

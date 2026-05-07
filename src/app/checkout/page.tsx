@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { loadStripe } from '@stripe/stripe-js'
@@ -17,6 +17,15 @@ import Link from 'next/link'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  cad: 'CA$', usd: '$', eur: '€', gbp: '£', chf: 'CHF ',
+}
+
+function fmt(amount: number, currency: string) {
+  const sym = CURRENCY_SYMBOLS[currency?.toLowerCase()] ?? currency?.toUpperCase() + ' '
+  return `${sym}${amount.toFixed(2)}`
+}
+
 function CheckoutForm() {
   const stripe = useStripe()
   const elements = useElements()
@@ -28,13 +37,14 @@ function CheckoutForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [serverTotal, setServerTotal] = useState<number | null>(null)
+  const [serverCurrency, setServerCurrency] = useState<string>('cad')
   const [billingDetails, setBillingDetails] = useState({
     name: session?.user.name || '',
     email: session?.user.email || '',
     address: '',
     city: '',
     postalCode: '',
-    country: 'US',
+    country: 'CA',
   })
 
   const subtotal = items.reduce((sum, item) => sum + item.displayPrice * item.quantity, 0)
@@ -42,23 +52,19 @@ function CheckoutForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!stripe || !elements) return
-    if (items.length === 0) {
-      setError('Your cart is empty.')
-      return
-    }
+    if (items.length === 0) { setError('Votre panier est vide.'); return }
 
     setLoading(true)
     setError(null)
 
     try {
-      // Validate billing details before hitting the API
-      if (!billingDetails.name.trim()) throw new Error('Full name is required')
-      if (!billingDetails.email.trim()) throw new Error('Email is required')
-      if (!billingDetails.address.trim()) throw new Error('Address is required')
-      if (!billingDetails.city.trim()) throw new Error('City is required')
-      if (!billingDetails.postalCode.trim()) throw new Error('Postal code is required')
+      if (!billingDetails.name.trim())       throw new Error('Le nom complet est requis.')
+      if (!billingDetails.email.trim())      throw new Error("L'adresse courriel est requise.")
+      if (!billingDetails.address.trim())    throw new Error("L'adresse est requise.")
+      if (!billingDetails.city.trim())       throw new Error('La ville est requise.')
+      if (!billingDetails.postalCode.trim()) throw new Error('Le code postal est requis.')
 
-      // Server computes the authoritative total — never send client price
+      // Server computes the authoritative total — never trust client price
       const intentRes = await fetch('/api/payments/create-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -69,15 +75,15 @@ function CheckoutForm() {
 
       if (!intentRes.ok) {
         const err = await intentRes.json()
-        throw new Error(err.error || 'Failed to create payment intent')
+        throw new Error(err.error || 'Impossible de créer la transaction.')
       }
 
-      const { clientSecret, amount: confirmedAmount } = await intentRes.json()
-      setServerTotal(confirmedAmount) // show the server-authoritative total
+      const { clientSecret, amount: confirmedAmount, currency } = await intentRes.json()
+      setServerTotal(confirmedAmount)
+      setServerCurrency(currency ?? 'cad')
 
-      // Confirm payment
       const cardElement = elements.getElement(CardElement)
-      if (!cardElement) throw new Error('Card element not found')
+      if (!cardElement) throw new Error('Élément carte introuvable.')
 
       const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
@@ -95,12 +101,9 @@ function CheckoutForm() {
         },
       })
 
-      if (stripeError) {
-        throw new Error(stripeError.message || 'Payment failed')
-      }
+      if (stripeError) throw new Error(stripeError.message || 'Paiement échoué.')
 
       if (paymentIntent?.status === 'succeeded') {
-        // Create order — server re-verifies PI and recomputes prices
         const orderRes = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -114,11 +117,11 @@ function CheckoutForm() {
           clearCart()
           router.push('/checkout/success')
         } else {
-          throw new Error('Order creation failed. Please contact support.')
+          throw new Error('Création de commande échouée. Contactez le support.')
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Payment failed. Please try again.')
+      setError(err.message || 'Paiement échoué. Veuillez réessayer.')
     } finally {
       setLoading(false)
     }
@@ -126,152 +129,161 @@ function CheckoutForm() {
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-16">
-        <p className="text-gray-500 mb-4">Your cart is empty</p>
-        <Link href="/products" className="text-primary-600 hover:text-primary-700 font-medium">
-          Browse products
+      <div style={{ textAlign: 'center', padding: '4rem 0' }}>
+        <p style={{ color: '#6b7280', marginBottom: '1rem' }}>Votre panier est vide.</p>
+        <Link href="/products" style={{ color: '#e51937', fontWeight: 600, textDecoration: 'none' }}>
+          Parcourir les produits
         </Link>
       </div>
     )
   }
+
+  const displayTotal = serverTotal ?? subtotal
+  const displayCurrency = serverCurrency
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-10">
       {/* Left: billing + payment */}
       <div className="space-y-6">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Billing Details</h2>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232', marginBottom: '1.25rem' }}>
+            Coordonnées de facturation
+          </h2>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Input
-                label="Full Name"
+                label="Nom complet"
                 value={billingDetails.name}
                 onChange={(e) => setBillingDetails({ ...billingDetails, name: e.target.value })}
                 required
+                autoComplete="name"
               />
               <Input
-                label="Email"
+                label="Courriel"
                 type="email"
                 value={billingDetails.email}
                 onChange={(e) => setBillingDetails({ ...billingDetails, email: e.target.value })}
                 required
+                autoComplete="email"
               />
             </div>
             <Input
-              label="Address"
+              label="Adresse"
               value={billingDetails.address}
               onChange={(e) => setBillingDetails({ ...billingDetails, address: e.target.value })}
               required
+              autoComplete="street-address"
             />
             <div className="grid grid-cols-2 gap-4">
               <Input
-                label="City"
+                label="Ville"
                 value={billingDetails.city}
                 onChange={(e) => setBillingDetails({ ...billingDetails, city: e.target.value })}
                 required
+                autoComplete="address-level2"
               />
               <Input
-                label="Postal Code"
+                label="Code postal"
                 value={billingDetails.postalCode}
                 onChange={(e) => setBillingDetails({ ...billingDetails, postalCode: e.target.value })}
                 required
+                autoComplete="postal-code"
               />
             </div>
-            <div className="form-group">
-              <label className="form-label">Country</label>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#374151', marginBottom: '0.4rem' }}>
+                Pays
+              </label>
               <select
                 value={billingDetails.country}
                 onChange={(e) => setBillingDetails({ ...billingDetails, country: e.target.value })}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                style={{ display: 'block', width: '100%', border: '1px solid #d1d5db', padding: '10px 12px', fontSize: '0.9rem', color: '#111827' }}
+                autoComplete="country"
               >
-                <option value="US">United States</option>
-                <option value="GB">United Kingdom</option>
                 <option value="CA">Canada</option>
-                <option value="AU">Australia</option>
-                <option value="DE">Germany</option>
+                <option value="US">États-Unis</option>
                 <option value="FR">France</option>
-                <option value="NL">Netherlands</option>
-                <option value="NO">Norway</option>
-                <option value="SE">Sweden</option>
-                <option value="DK">Denmark</option>
+                <option value="BE">Belgique</option>
+                <option value="CH">Suisse</option>
+                <option value="GB">Royaume-Uni</option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* Payment */}
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment</h2>
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232', marginBottom: '1.25rem' }}>
+            Paiement
+          </h2>
+          <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', padding: '1rem' }}>
             <CardElement
               options={{
                 style: {
-                  base: {
-                    fontSize: '16px',
-                    color: '#111827',
-                    '::placeholder': { color: '#9ca3af' },
-                  },
+                  base: { fontSize: '16px', color: '#111827', '::placeholder': { color: '#9ca3af' } },
                   invalid: { color: '#ef4444' },
                 },
               }}
             />
           </div>
-          <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+          <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
             </svg>
-            Secured by Stripe. Your payment info is never stored on our servers.
+            Sécurisé par Stripe. Vos informations ne sont jamais stockées sur nos serveurs.
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <p className="text-red-700 text-sm">{error}</p>
+          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '0.75rem' }} role="alert">
+            <p style={{ color: '#b91c1c', fontSize: '0.875rem' }}>{error}</p>
           </div>
         )}
 
-        <Button
-          type="submit"
-          size="lg"
-          fullWidth
-          isLoading={loading}
-          disabled={!stripe || loading}
-        >
-          {loading ? 'Processing...' : `Pay €${(serverTotal ?? subtotal).toFixed(2)}`}
+        <Button type="submit" size="lg" fullWidth isLoading={loading} disabled={!stripe || loading}>
+          {loading ? 'Traitement en cours…' : `Payer ${fmt(displayTotal, displayCurrency)}`}
         </Button>
       </div>
 
       {/* Right: order summary */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Order Summary</h2>
-        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-4 py-2 border-b border-gray-100 last:border-0">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+        <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232', marginBottom: '1.25rem' }}>
+          Récapitulatif
+        </h2>
+        <div style={{ border: '1px solid #e5e7eb', padding: '1rem' }}>
+          <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '1rem', marginBottom: '1rem' }}>
+            {items.map((item) => (
+              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', padding: '0.5rem 0', borderBottom: '1px solid #f3f4f6' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
+                  <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>Qté : {item.quantity}</p>
+                </div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#111827', flexShrink: 0 }}>
+                  {fmt(item.displayPrice * item.quantity, displayCurrency)}
+                </span>
               </div>
-              <span className="text-sm font-semibold text-gray-900">
-                ${(item.displayPrice * item.quantity).toFixed(2)}
-              </span>
-            </div>
-          ))}
+            ))}
+          </div>
 
-          <div className="pt-2 space-y-2">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>Subtotal</span>
-              <span>€{subtotal.toFixed(2)}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#6b7280' }}>
+              <span>Sous-total</span>
+              <span>{fmt(subtotal, displayCurrency)}</span>
             </div>
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>Tax</span>
-              <span>Included</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#6b7280' }}>
+              <span>Taxes</span>
+              <span>Incluses</span>
             </div>
-            <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-900">
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #1f2232', paddingTop: '0.75rem', fontWeight: 900, color: '#1f2232', fontSize: '1rem' }}>
               <span>Total</span>
-              <span>€{subtotal.toFixed(2)}</span>
+              <span style={{ color: '#e51937' }}>{fmt(serverTotal ?? subtotal, displayCurrency)}</span>
             </div>
           </div>
         </div>
+
+        <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.75rem', textAlign: 'center' }}>
+          En passant votre commande, vous acceptez nos{' '}
+          <Link href="/conditions" style={{ color: '#e51937' }}>conditions générales de vente</Link>.
+        </p>
       </div>
     </form>
   )
@@ -279,8 +291,16 @@ function CheckoutForm() {
 
 export default function CheckoutPage() {
   return (
-    <div className="container py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
+    <div className="container" style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
+      <div style={{ marginBottom: '2rem' }}>
+        <Link href="/cart" style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b7280', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+          ← Retour au panier
+        </Link>
+        <h1 style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232', marginTop: '0.5rem' }}>
+          Paiement
+        </h1>
+        <div style={{ width: 40, height: 4, backgroundColor: '#e51937', marginTop: '0.5rem' }} />
+      </div>
       <Elements stripe={stripePromise}>
         <CheckoutForm />
       </Elements>

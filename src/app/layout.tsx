@@ -49,7 +49,8 @@ export default function RootLayout({
                     <ul className="space-y-2 text-sm" style={{ fontWeight: 300 }}>
                       <li><a href="/products" className="hover:text-white transition-colors" style={{ color: '#9ca3af' }}>Produits</a></li>
                       <li><a href="/account" className="hover:text-white transition-colors" style={{ color: '#9ca3af' }}>Mon compte</a></li>
-                      <li><a href="/cart" className="hover:text-white transition-colors" style={{ color: '#9ca3af' }}>Panier</a></li>
+                      <li><a href="/account/orders" className="hover:text-white transition-colors" style={{ color: '#9ca3af' }}>Mes commandes</a></li>
+                      <li><a href="/conditions" className="hover:text-white transition-colors" style={{ color: '#9ca3af' }}>Conditions de vente</a></li>
                     </ul>
                   </div>
 

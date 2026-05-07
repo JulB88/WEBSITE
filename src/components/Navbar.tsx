@@ -1,18 +1,33 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useSession, signOut } from 'next-auth/react'
 import { useCartStore } from '@/lib/cart-store'
 import CartSidebar from './CartSidebar'
 
+const STAFF_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CUSTOMER_SERVICE']
+
 export default function Navbar() {
   const { data: session } = useSession()
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const accountRef = useRef<HTMLDivElement>(null)
   const items = useCartStore((state) => state.items)
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
+  const isStaff = session && STAFF_ROLES.includes(session.user.role)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (accountRef.current && !accountRef.current.contains(e.target as Node)) {
+        setIsAccountOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const linkStyle: React.CSSProperties = {
     color: '#fff',
@@ -24,6 +39,11 @@ export default function Navbar() {
     transition: 'color 0.2s ease',
     textDecoration: 'none',
   }
+
+  const navLinks = [
+    { href: '/', label: 'Accueil' },
+    { href: '/products', label: 'Produits' },
+  ]
 
   return (
     <>
@@ -41,10 +61,7 @@ export default function Navbar() {
 
             {/* Desktop nav links */}
             <div className="hidden md:flex items-center">
-              {[
-                { href: '/',         label: 'Accueil' },
-                { href: '/products', label: 'Produits' },
-              ].map(({ href, label }) => (
+              {navLinks.map(({ href, label }) => (
                 <Link
                   key={href}
                   href={href}
@@ -87,32 +104,88 @@ export default function Navbar() {
               <div className="hidden md:flex items-center gap-2">
                 {session ? (
                   <>
-                    <Link
-                      href="/account"
-                      style={{ ...linkStyle, fontSize: '0.75rem' }}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
-                      onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
-                    >
-                      {session.user.name || session.user.email}
-                    </Link>
-                    {['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'CUSTOMER_SERVICE'].includes(session.user.role) && (
+                    {isStaff && (
                       <Link
                         href="/dashboard"
                         style={{ backgroundColor: '#e51937', color: '#fff', padding: '6px 16px', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}
-                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#333')}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#c0102a')}
                         onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#e51937')}
                       >
                         Dashboard
                       </Link>
                     )}
-                    <button
-                      onClick={() => signOut({ callbackUrl: '/' })}
-                      style={{ ...linkStyle, background: 'none', border: 'none', cursor: 'pointer' }}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
-                      onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
-                    >
-                      Déconnexion
-                    </button>
+
+                    {/* Account dropdown */}
+                    <div ref={accountRef} style={{ position: 'relative' }}>
+                      <button
+                        onClick={() => setIsAccountOpen(!isAccountOpen)}
+                        aria-expanded={isAccountOpen}
+                        aria-haspopup="true"
+                        style={{
+                          ...linkStyle,
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
+                        onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
+                      >
+                        <svg style={{ width: 16, height: 16 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {session.user.name?.split(' ')[0] || 'Mon compte'}
+                        </span>
+                        <svg style={{ width: 12, height: 12, transition: 'transform 0.2s', transform: isAccountOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {isAccountOpen && (
+                        <div style={{
+                          position: 'absolute', top: '100%', right: 0,
+                          backgroundColor: '#fff', border: '1px solid #e5e7eb',
+                          borderTop: '3px solid #e51937',
+                          minWidth: 200, zIndex: 50,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        }}>
+                          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f3f4f6' }}>
+                            <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1f2232', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                              {session.user.name}
+                            </p>
+                            <p style={{ fontSize: '0.72rem', color: '#6b7280', marginTop: 2 }}>{session.user.email}</p>
+                          </div>
+                          {[
+                            { href: '/account', label: 'Mon profil' },
+                            { href: '/account/orders', label: 'Mes commandes' },
+                          ].map(({ href, label }) => (
+                            <Link
+                              key={href}
+                              href={href}
+                              onClick={() => setIsAccountOpen(false)}
+                              style={{ display: 'block', padding: '0.65rem 1rem', fontSize: '0.82rem', fontWeight: 500, color: '#374151', textDecoration: 'none', transition: 'background 0.15s' }}
+                              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f9fafb'; e.currentTarget.style.color = '#e51937' }}
+                              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#374151' }}
+                            >
+                              {label}
+                            </Link>
+                          ))}
+                          <div style={{ borderTop: '1px solid #f3f4f6' }}>
+                            <button
+                              onClick={() => { signOut({ callbackUrl: '/' }); setIsAccountOpen(false) }}
+                              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '0.65rem 1rem', fontSize: '0.82rem', fontWeight: 500, color: '#e51937', background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}
+                              onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#fef2f2')}
+                              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                            >
+                              Déconnexion
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </>
                 ) : (
                   <>
@@ -127,7 +200,7 @@ export default function Navbar() {
                     <Link
                       href="/auth/register"
                       style={{ backgroundColor: '#e51937', color: '#fff', padding: '8px 20px', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}
-                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#333')}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#c0102a')}
                       onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#e51937')}
                     >
                       S'inscrire
@@ -140,6 +213,8 @@ export default function Navbar() {
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="md:hidden"
+                aria-label={isMobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+                aria-expanded={isMobileMenuOpen}
                 style={{ padding: '8px', color: '#fff', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,10 +229,7 @@ export default function Navbar() {
           {/* Mobile menu */}
           {isMobileMenuOpen && (
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-              {[
-                { href: '/',         label: 'Accueil' },
-                { href: '/products', label: 'Produits' },
-              ].map(({ href, label }) => (
+              {navLinks.map(({ href, label }) => (
                 <Link
                   key={href}
                   href={href}
@@ -167,11 +239,15 @@ export default function Navbar() {
                   {label}
                 </Link>
               ))}
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {session ? (
                   <>
-                    <Link href="/account" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>Mon compte</Link>
-                    <button onClick={() => { signOut({ callbackUrl: '/' }); setIsMobileMenuOpen(false) }} style={{ display: 'block', padding: '8px 0', color: '#e51937', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500 }}>Déconnexion</button>
+                    <Link href="/account" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>Mon profil</Link>
+                    <Link href="/account/orders" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>Mes commandes</Link>
+                    {isStaff && (
+                      <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#e51937', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}>Dashboard</Link>
+                    )}
+                    <button onClick={() => { signOut({ callbackUrl: '/' }); setIsMobileMenuOpen(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 0', color: '#e51937', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500 }}>Déconnexion</button>
                   </>
                 ) : (
                   <>

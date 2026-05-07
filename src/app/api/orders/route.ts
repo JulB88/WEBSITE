@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getStripe } from '@/lib/stripe'
 import { computeOrderTotal } from '@/lib/pricing'
+import { hasPermission } from '@/lib/permissions'
+import type { Role } from '@/lib/permissions'
 
 const MAX_LIMIT = 100
 
@@ -12,12 +14,13 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const isAdmin = session.user.role === 'ADMIN'
+    const canViewAll = hasPermission(session.user.role as Role, 'orders:read') &&
+      ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CUSTOMER_SERVICE'].includes(session.user.role)
     const { searchParams } = new URL(req.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
     const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(searchParams.get('limit') || '10', 10)))
 
-    const where = isAdmin ? {} : { userId: session.user.id }
+    const where = canViewAll ? {} : { userId: session.user.id }
 
     const [orders, total] = await Promise.all([
       prisma.order.findMany({

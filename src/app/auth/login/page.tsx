@@ -7,7 +7,6 @@ import Link from 'next/link'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 
-// useSearchParams must be inside a Suspense boundary in Next.js 14
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -30,38 +29,42 @@ function LoginForm() {
       })
 
       if (result?.error) {
-        setError('Invalid email or password. Please try again.')
+        setError('Courriel ou mot de passe invalide. Veuillez réessayer.')
       } else {
         router.push(callbackUrl)
         router.refresh()
       }
-    } catch (err) {
-      setError('Something went wrong. Please try again.')
+    } catch {
+      setError('Une erreur est survenue. Veuillez réessayer.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-      {/* Logo */}
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Connexion DSF</h1>
-        <p className="text-gray-500 mt-1 text-sm">Entrez vos identifiants pour accéder à votre compte</p>
+    <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '4px solid #e51937', padding: '2.5rem' }}>
+      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '1.4rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232' }}>
+          Connexion
+        </h1>
+        <div style={{ width: 40, height: 3, backgroundColor: '#e51937', margin: '0.6rem auto 0.75rem' }} />
+        <p style={{ fontSize: '0.85rem', fontWeight: 300, color: '#6b7280' }}>
+          Accédez à votre espace client DSF
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <Input
-          label="Email address"
+          label="Adresse courriel"
           type="email"
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
-          placeholder="you@example.com"
+          placeholder="vous@exemple.com"
           required
           autoComplete="email"
         />
         <Input
-          label="Password"
+          label="Mot de passe"
           type="password"
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -71,41 +74,34 @@ function LoginForm() {
         />
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <p className="text-red-700 text-sm">{error}</p>
+          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '0.75rem' }} role="alert">
+            <p style={{ color: '#b91c1c', fontSize: '0.875rem' }}>{error}</p>
           </div>
         )}
 
         <Button type="submit" fullWidth size="lg" isLoading={loading}>
-          {loading ? 'Signing in...' : 'Sign In'}
+          {loading ? 'Connexion…' : 'Se connecter'}
         </Button>
       </form>
 
-      <div className="mt-6 text-center">
-        <p className="text-sm text-gray-500">
-          Don&apos;t have an account?{' '}
-          <Link href="/auth/register" className="text-primary-600 hover:text-primary-700 font-medium">
-            Register here
-          </Link>
-        </p>
-      </div>
+      <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: '#6b7280' }}>
+        Pas encore de compte ?{' '}
+        <Link href="/auth/register" style={{ color: '#e51937', fontWeight: 600, textDecoration: 'none' }}>
+          Créer un compte
+        </Link>
+      </p>
     </div>
   )
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-md">
+    <div style={{ minHeight: 'calc(100vh - 4rem)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem', backgroundColor: '#f3f4f6' }}>
+      <div style={{ width: '100%', maxWidth: 420 }}>
         <Suspense fallback={
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 animate-pulse">
-            <div className="h-12 w-12 bg-gray-200 rounded-xl mx-auto mb-4" />
-            <div className="h-6 bg-gray-200 rounded w-3/4 mx-auto mb-8" />
-            <div className="space-y-4">
-              <div className="h-10 bg-gray-200 rounded" />
-              <div className="h-10 bg-gray-200 rounded" />
-              <div className="h-12 bg-gray-200 rounded" />
-            </div>
+          <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', padding: '2.5rem', textAlign: 'center' }}>
+            <div style={{ width: 40, height: 4, backgroundColor: '#e5e7eb', margin: '0 auto 1rem', borderRadius: 2 }} />
+            <div style={{ height: 200, backgroundColor: '#f3f4f6' }} />
           </div>
         }>
           <LoginForm />

@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
       amount: total,           // authoritative total — use this in the UI
-      currency,
+      currency: displayCurrency, // matches what Stripe was charged in
     })
   } catch (err: any) {
     console.error('[create-intent]', err)

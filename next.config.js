@@ -4,9 +4,8 @@ const nextConfig = {
     remotePatterns: [
       // Business Central image CDN
       { protocol: 'https', hostname: '*.businesscentral.dynamics.com' },
-      // Add your own product image hosts here — never use a wildcard (**)
-      // which allows SSRF attacks through the image proxy
-      { protocol: 'https', hostname: 'images.unsplash.com' },
+      // Product image hosting — add your own CDN here if needed
+      { protocol: 'https', hostname: 'cdn.dsf.example.com' },
     ],
   },
 

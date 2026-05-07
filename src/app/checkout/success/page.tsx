@@ -1,34 +1,65 @@
 import Link from 'next/link'
-import Button from '@/components/ui/Button'
 
 export default function CheckoutSuccessPage() {
   return (
-    <div className="container py-16">
-      <div className="max-w-md mx-auto text-center">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    <div className="container" style={{ paddingTop: '5rem', paddingBottom: '5rem' }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', textAlign: 'center' }}>
+        {/* Checkmark */}
+        <div style={{
+          width: 80, height: 80,
+          backgroundColor: '#f0fdf4',
+          border: '3px solid #22c55e',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto 2rem',
+        }}>
+          <svg style={{ width: 40, height: 40, color: '#16a34a' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-3">Order Placed!</h1>
-        <p className="text-gray-500 mb-2">
-          Thank you for your order. We've received your payment and will process your order shortly.
+        <h1 style={{
+          fontSize: 'clamp(1.4rem, 3vw, 1.9rem)',
+          fontWeight: 900,
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          color: '#1f2232',
+          marginBottom: '0.6rem',
+        }}>
+          Commande confirmée !
+        </h1>
+        <div style={{ width: 56, height: 4, backgroundColor: '#e51937', margin: '0 auto 1.5rem' }} />
+
+        <p style={{ fontSize: '0.95rem', fontWeight: 300, color: '#4b5563', lineHeight: 1.8, marginBottom: '0.75rem' }}>
+          Merci pour votre commande. Votre paiement a été reçu et votre commande est en cours de traitement.
         </p>
-        <p className="text-gray-500 mb-8">
-          You'll receive a confirmation email with your order details.
+        <p style={{ fontSize: '0.85rem', fontWeight: 300, color: '#6b7280', marginBottom: '2.5rem' }}>
+          Un courriel de confirmation vous sera envoyé sous peu avec les détails de votre commande.
         </p>
 
-        <div className="space-y-3">
-          <Link href="/account/orders">
-            <Button size="lg" fullWidth>
-              View My Orders
-            </Button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <Link
+            href="/account/orders"
+            style={{
+              display: 'block',
+              backgroundColor: '#e51937', color: '#fff',
+              padding: '14px 24px', fontWeight: 700,
+              fontSize: '0.78rem', textTransform: 'uppercase',
+              letterSpacing: '0.08em', textDecoration: 'none',
+            }}
+          >
+            Voir mes commandes
           </Link>
-          <Link href="/products">
-            <Button variant="secondary" size="lg" fullWidth>
-              Continue Shopping
-            </Button>
+          <Link
+            href="/products"
+            style={{
+              display: 'block',
+              border: '2px solid #1f2232', color: '#1f2232',
+              padding: '12px 24px', fontWeight: 700,
+              fontSize: '0.78rem', textTransform: 'uppercase',
+              letterSpacing: '0.08em', textDecoration: 'none',
+            }}
+          >
+            Continuer mes achats
           </Link>
         </div>
       </div>

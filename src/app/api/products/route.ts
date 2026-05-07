@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { canAccessDashboard, hasPermission } from '@/lib/permissions'
+import type { Role } from '@/lib/permissions'
 import type { Product } from '@prisma/client'
 
 const MAX_LIMIT = 100
@@ -53,8 +55,9 @@ export async function GET(req: NextRequest) {
       [allowedSortFields[sortField] ?? 'createdAt']: sortDir === 'asc' ? 'asc' : 'desc',
     }
 
-    // Dashboard admins can see inactive products and filter by categoryId
-    const isStaff = searchParams.get('staff') === 'true'
+    // Only authenticated staff may view inactive products
+    const session = await getServerSession(authOptions)
+    const isStaff = !!session && canAccessDashboard(session.user.role as Role)
     const categoryId = searchParams.get('categoryId')?.trim() || ''
     const activeParam = searchParams.get('active')
 
@@ -84,7 +87,6 @@ export async function GET(req: NextRequest) {
       featured ? Promise.resolve(null) : prisma.product.count({ where }),
     ])
 
-    const session = await getServerSession(authOptions)
     const enriched: ProductWithDisplay[] = session?.user.businessCustomerId
       ? await applyBusinessPricing(products, session.user.businessCustomerId)
       : products.map((p) => ({ ...p, displayPrice: p.price }))
@@ -104,7 +106,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !hasPermission(session.user.role as Role, 'products:write')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -120,6 +122,11 @@ export async function POST(req: NextRequest) {
     const parsedPrice = Number(price)
     if (price == null || isNaN(parsedPrice) || parsedPrice < 0) {
       return NextResponse.json({ error: 'price must be a non-negative number' }, { status: 400 })
+    }
+
+    const duplicate = await prisma.product.findUnique({ where: { bcItemNo: bcItemNo.trim() } })
+    if (duplicate) {
+      return NextResponse.json({ error: 'A product with this BC item number already exists' }, { status: 409 })
     }
 
     const product = await prisma.product.create({

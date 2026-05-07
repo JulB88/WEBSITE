@@ -29,17 +29,15 @@ export default function RegisterPage() {
     setError(null)
 
     if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match.')
+      setError('Les mots de passe ne correspondent pas.')
       return
     }
-
     if (form.password.length < 8) {
-      setError('Password must be at least 8 characters.')
+      setError('Le mot de passe doit contenir au moins 8 caractères.')
       return
     }
-
     if (accountType === 'business' && !form.companyName) {
-      setError('Company name is required for business accounts.')
+      setError('Le nom de l\'entreprise est requis pour les comptes B2B.')
       return
     }
 
@@ -60,12 +58,8 @@ export default function RegisterPage() {
       })
 
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Inscription échouée.')
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Registration failed')
-      }
-
-      // Auto sign in after registration
       const signInResult = await signIn('credentials', {
         redirect: false,
         email: form.email,
@@ -79,121 +73,132 @@ export default function RegisterPage() {
         router.push('/auth/login')
       }
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.')
+      setError(err.message || 'Inscription échouée. Veuillez réessayer.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Créer un compte</h1>
-            <p className="text-gray-500 mt-1 text-sm">Rejoignez DSF aujourd'hui</p>
+    <div style={{ minHeight: 'calc(100vh - 4rem)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem', backgroundColor: '#f3f4f6' }}>
+      <div style={{ width: '100%', maxWidth: 480 }}>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '4px solid #e51937', padding: '2.5rem' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h1 style={{ fontSize: '1.4rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232' }}>
+              Créer un compte
+            </h1>
+            <div style={{ width: 40, height: 3, backgroundColor: '#e51937', margin: '0.6rem auto 0.75rem' }} />
+            <p style={{ fontSize: '0.85rem', fontWeight: 300, color: '#6b7280' }}>
+              Rejoignez DSF — Distribution professionnelle
+            </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Account type selector */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Account type */}
             <div>
-              <label className="form-label block mb-2">Account Type</label>
-              <div className="grid grid-cols-2 gap-3">
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#374151', marginBottom: '0.5rem' }}>
+                Type de compte
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 {(['personal', 'business'] as AccountType[]).map((type) => (
                   <button
                     key={type}
                     type="button"
                     onClick={() => setAccountType(type)}
-                    className={`py-2.5 px-4 rounded-lg border-2 text-sm font-medium transition-colors ${
-                      accountType === type
-                        ? 'border-primary-600 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
+                    aria-pressed={accountType === type}
+                    style={{
+                      padding: '0.65rem 1rem',
+                      border: `2px solid ${accountType === type ? '#e51937' : '#d1d5db'}`,
+                      backgroundColor: accountType === type ? '#fff5f6' : '#fff',
+                      color: accountType === type ? '#e51937' : '#6b7280',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                      cursor: 'pointer',
+                    }}
                   >
-                    {type === 'personal' ? '👤 Personal' : '🏢 Business'}
+                    {type === 'personal' ? 'Personnel' : 'Entreprise B2B'}
                   </button>
                 ))}
               </div>
             </div>
 
             <Input
-              label="Full Name"
+              label="Nom complet"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="John Doe"
+              placeholder="Jean Tremblay"
               required
+              autoComplete="name"
             />
-
             <Input
-              label="Email Address"
+              label="Adresse courriel"
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              placeholder="you@example.com"
+              placeholder="vous@exemple.com"
               required
               autoComplete="email"
             />
-
             <Input
-              label="Password"
+              label="Mot de passe"
               type="password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
-              placeholder="Minimum 8 characters"
+              placeholder="Minimum 8 caractères"
               required
               autoComplete="new-password"
-              helperText="Must be at least 8 characters"
+              helperText="Au moins 8 caractères"
             />
-
             <Input
-              label="Confirm Password"
+              label="Confirmer le mot de passe"
               type="password"
               value={form.confirmPassword}
               onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-              placeholder="Repeat your password"
+              placeholder="Répétez votre mot de passe"
               required
               autoComplete="new-password"
             />
 
-            {/* Business-specific fields */}
             {accountType === 'business' && (
-              <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-3">
-                <p className="text-sm font-medium text-amber-800">Business Information</p>
+              <div style={{ border: '1px solid #fde68a', backgroundColor: '#fffbeb', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Informations entreprise
+                </p>
                 <Input
-                  label="Company Name"
+                  label="Nom de l'entreprise"
                   value={form.companyName}
                   onChange={(e) => setForm({ ...form, companyName: e.target.value })}
-                  placeholder="Acme Corporation"
+                  placeholder="Construction Tremblay inc."
                   required={accountType === 'business'}
                 />
                 <Input
-                  label="VAT Number (optional)"
+                  label="Numéro de TPS/TVQ (optionnel)"
                   value={form.vatNumber}
                   onChange={(e) => setForm({ ...form, vatNumber: e.target.value })}
-                  placeholder="GB123456789"
+                  placeholder="Ex. 123456789 RT0001"
                 />
               </div>
             )}
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-red-700 text-sm">{error}</p>
+              <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '0.75rem' }} role="alert">
+                <p style={{ color: '#b91c1c', fontSize: '0.875rem' }}>{error}</p>
               </div>
             )}
 
             <Button type="submit" fullWidth size="lg" isLoading={loading}>
-              {loading ? 'Creating account...' : 'Create Account'}
+              {loading ? 'Création en cours…' : 'Créer mon compte'}
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500">
-              Already have an account?{' '}
-              <Link href="/auth/login" className="text-primary-600 hover:text-primary-700 font-medium">
-                Sign in
-              </Link>
-            </p>
-          </div>
+          <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: '#6b7280' }}>
+            Déjà un compte ?{' '}
+            <Link href="/auth/login" style={{ color: '#e51937', fontWeight: 600, textDecoration: 'none' }}>
+              Se connecter
+            </Link>
+          </p>
         </div>
       </div>
     </div>
