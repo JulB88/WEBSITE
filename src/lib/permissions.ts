@@ -99,7 +99,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'categories:read', 'categories:write',
     'orders:read', 'orders:write',
     'discounts:read', 'discounts:write',
-    'pricelists:read',
+    'pricelists:read', 'pricelists:write',
     'users:read',
     'bc:sync',
   ],
