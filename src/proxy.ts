@@ -5,7 +5,7 @@ import type { Role } from './lib/permissions'
 
 const secret = process.env.NEXTAUTH_SECRET
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname
   const isApiRoute = pathname.startsWith('/api/')
   const isAdminPath = pathname.startsWith('/admin') || pathname.startsWith('/api/admin')
