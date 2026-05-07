@@ -90,11 +90,8 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           <div className="text-center mb-8">
-            <div className="bg-primary-600 text-white rounded-xl w-12 h-12 flex items-center justify-center font-bold text-lg mx-auto mb-3">
-              BC
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Create an account</h1>
-            <p className="text-gray-500 mt-1 text-sm">Join ShopBC today</p>
+            <h1 className="text-2xl font-bold text-gray-900">Créer un compte</h1>
+            <p className="text-gray-500 mt-1 text-sm">Rejoignez DSF aujourd'hui</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

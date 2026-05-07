@@ -24,7 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <aside className="w-64 bg-gray-900 text-white flex-shrink-0">
         <div className="p-4 border-b border-gray-700">
           <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Admin Panel</p>
-          <p className="text-white font-semibold mt-1">ShopBC Admin</p>
+          <p className="text-white font-semibold mt-1">DSF Admin</p>
         </div>
         <nav className="p-3 space-y-1">
           {navItems.map((item) => (

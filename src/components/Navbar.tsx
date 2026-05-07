@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useSession, signOut } from 'next-auth/react'
 import { useCartStore } from '@/lib/cart-store'
 import CartSidebar from './CartSidebar'
@@ -34,13 +35,8 @@ export default function Navbar() {
           <div className="flex items-center justify-between" style={{ height: '72px' }}>
 
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-3" style={{ textDecoration: 'none' }}>
-              <div style={{ backgroundColor: '#e51937', width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span style={{ color: '#fff', fontWeight: 900, fontSize: '0.9rem', letterSpacing: '0.05em' }}>BC</span>
-              </div>
-              <span style={{ color: '#fff', fontWeight: 800, fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                ShopBC
-              </span>
+            <Link href="/" className="flex items-center" style={{ textDecoration: 'none' }}>
+              <Image src="/dsf-logo.png" alt="DSF" width={120} height={42} style={{ objectFit: 'contain' }} priority />
             </Link>
 
             {/* Desktop nav links */}

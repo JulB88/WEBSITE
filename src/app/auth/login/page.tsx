@@ -46,11 +46,8 @@ function LoginForm() {
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
       {/* Logo */}
       <div className="text-center mb-8">
-        <div className="bg-primary-600 text-white rounded-xl w-12 h-12 flex items-center justify-center font-bold text-lg mx-auto mb-3">
-          BC
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900">Sign in to ShopBC</h1>
-        <p className="text-gray-500 mt-1 text-sm">Enter your credentials to access your account</p>
+        <h1 className="text-2xl font-bold text-gray-900">Connexion DSF</h1>
+        <p className="text-gray-500 mt-1 text-sm">Entrez vos identifiants pour accéder à votre compte</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

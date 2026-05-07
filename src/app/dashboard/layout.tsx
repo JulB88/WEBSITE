@@ -5,7 +5,7 @@ import { canAccessDashboard } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 import Sidebar from '@/components/dashboard/Sidebar'
 
-export const metadata = { title: 'Dashboard — ShopBC' }
+export const metadata = { title: 'Dashboard — DSF' }
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions)

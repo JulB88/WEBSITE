@@ -155,7 +155,7 @@ export default async function HomePage() {
       <section style={{ backgroundColor: '#1f2232', borderTop: '6px solid #e51937', borderBottom: '6px solid #e51937', paddingTop: '4rem', paddingBottom: '4rem' }}>
         <div className="container">
           <h2 style={{ fontSize: '1.3rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#fff', textAlign: 'center', marginBottom: '0.75rem' }}>
-            Pourquoi choisir ShopBC ?
+            Pourquoi choisir DSF ?
           </h2>
           <div style={{ width: 60, height: 5, backgroundColor: '#e51937', margin: '0 auto 3rem' }} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

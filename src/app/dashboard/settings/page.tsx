@@ -132,7 +132,7 @@ export default function DashboardSettingsPage() {
         <section className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-base font-semibold text-gray-900 mb-4">General</h2>
           <div className="space-y-4">
-            <Field label="Store Name" name="store_name" value={settings.store_name ?? ''} onChange={handleChange} placeholder="ShopBC" />
+            <Field label="Store Name" name="store_name" value={settings.store_name ?? ''} onChange={handleChange} placeholder="DSF" />
             <Field label="Store Email" name="store_email" value={settings.store_email ?? ''} onChange={handleChange} type="email" placeholder="orders@yourstore.com" />
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>

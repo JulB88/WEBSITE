@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import './globals.css'
 import { Providers } from './providers'
 import Navbar from '@/components/Navbar'
 
 export const metadata: Metadata = {
-  title: 'ShopBC - Distribution professionnelle',
-  description: 'Plateforme B2B et B2C connectée à Microsoft Business Central',
+  title: 'DSF - Distribution professionnelle',
+  description: 'Distribution Ste-Foy — plateforme B2B et B2C connectée à Microsoft Business Central',
 }
 
 export default function RootLayout({
@@ -32,11 +33,8 @@ export default function RootLayout({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
                   {/* Brand */}
                   <div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div style={{ backgroundColor: '#e51937', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ color: '#fff', fontWeight: 900, fontSize: '0.85rem', letterSpacing: '0.05em' }}>BC</span>
-                      </div>
-                      <span style={{ color: '#fff', fontWeight: 800, fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ShopBC</span>
+                    <div className="mb-4">
+                      <Image src="/dsf-logo.png" alt="DSF" width={110} height={38} style={{ objectFit: 'contain' }} />
                     </div>
                     <p className="text-sm" style={{ fontWeight: 300 }}>
                       Distribution professionnelle connectée à Microsoft Business Central.
@@ -60,12 +58,12 @@ export default function RootLayout({
                     <h4 style={{ color: '#fff', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>
                       Contact
                     </h4>
-                    <p className="text-sm" style={{ fontWeight: 300 }}>support@shopbc.example.com</p>
+                    <p className="text-sm" style={{ fontWeight: 300 }}>support@dsf.example.com</p>
                   </div>
                 </div>
 
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '2.5rem', paddingTop: '1.5rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 300 }}>
-                  <p>&copy; {new Date().getFullYear()} ShopBC. Tous droits réservés.</p>
+                  <p>&copy; {new Date().getFullYear()} Distribution Ste-Foy (DSF). Tous droits réservés.</p>
                 </div>
               </div>
             </footer>

@@ -49,7 +49,7 @@ export default function Sidebar({ role, userName, userEmail }: SidebarProps) {
       <div className="flex items-center justify-between px-4 py-4 border-b border-gray-700">
         {!collapsed && (
           <div>
-            <span className="text-lg font-bold text-white">ShopBC</span>
+            <span className="text-lg font-bold text-white">DSF</span>
             <span className="ml-2 text-xs text-gray-400">Dashboard</span>
           </div>
         )}

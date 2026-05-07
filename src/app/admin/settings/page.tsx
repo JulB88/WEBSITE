@@ -77,7 +77,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({
     stripe_publishable_key: '', stripe_secret_key: '', stripe_webhook_secret: '',
     bc_tenant_id: '', bc_client_id: '', bc_client_secret: '', bc_environment: 'production', bc_company_id: '',
-    store_name: 'ShopBC', store_currency: 'EUR', store_email: '',
+    store_name: 'DSF', store_currency: 'CAD', store_email: '',
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -163,7 +163,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Store Name" name="store_name" value={settings.store_name || ''} onChange={handleChange} placeholder="ShopBC" />
+            <Field label="Store Name" name="store_name" value={settings.store_name || ''} onChange={handleChange} placeholder="DSF" />
             <Field label="Contact Email" name="store_email" value={settings.store_email || ''} onChange={handleChange} placeholder="shop@example.com" />
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-700">Currency</label>
