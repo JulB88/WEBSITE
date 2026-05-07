@@ -4,16 +4,17 @@ import Link from 'next/link'
 import { useI18n } from '@/lib/i18n'
 import ProductCard from '@/components/ProductCard'
 import type { Product } from '@/types'
+import type { CategoryBilingual } from './page'
 
 interface Props {
   products: Product[]
-  categories: string[]
+  categories: CategoryBilingual[]
   isLoggedIn: boolean
   isB2B: boolean
 }
 
 export default function HomeClient({ products, categories, isLoggedIn, isB2B }: Props) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
 
   return (
     <div>
@@ -92,11 +93,11 @@ export default function HomeClient({ products, categories, isLoggedIn, isB2B }: 
               </Link>
               {categories.map((cat) => (
                 <Link
-                  key={cat}
-                  href={`/products?category=${encodeURIComponent(cat)}`}
+                  key={cat.id}
+                  href={`/products?category=${encodeURIComponent(cat.name)}`}
                   style={{ backgroundColor: '#f3f4f6', color: '#1f2232', padding: '8px 20px', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', textDecoration: 'none', border: '1px solid #e5e7eb' }}
                 >
-                  {cat}
+                  {lang === 'en' && cat.nameEn ? cat.nameEn : cat.name}
                 </Link>
               ))}
             </div>

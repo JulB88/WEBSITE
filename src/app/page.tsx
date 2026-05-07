@@ -32,13 +32,13 @@ async function getFeaturedProducts(businessCustomerId?: string | null): Promise<
   })
 }
 
-async function getCategories(): Promise<string[]> {
-  const products = await prisma.product.findMany({
-    where: { active: true, category: { not: null } },
-    select: { category: true },
-    distinct: ['category'],
+export type CategoryBilingual = { id: string; name: string; nameEn: string | null; slug: string }
+
+async function getCategories(): Promise<CategoryBilingual[]> {
+  return prisma.category.findMany({
+    select: { id: true, name: true, nameEn: true, slug: true },
+    orderBy: { name: 'asc' },
   })
-  return products.map((p) => p.category).filter(Boolean) as string[]
 }
 
 export default async function HomePage() {

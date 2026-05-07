@@ -135,6 +135,7 @@ model PriceListItem {
 model Category {
   id                String             @id @default(cuid())
   name              String
+  nameEn            String?
   slug              String             @unique
   description       String?
   parentId          String?

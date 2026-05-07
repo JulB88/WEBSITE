@@ -16,11 +16,11 @@ const sortApiMap: Record<string, string> = {
 
 function ProductsContent() {
   const { data: session } = useSession()
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const searchParams = useSearchParams()
 
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<string[]>([])
+  const [categories, setCategories] = useState<{ name: string; nameEn: string | null }[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [category, setCategory] = useState(searchParams.get('category') || '')
@@ -52,11 +52,11 @@ function ProductsContent() {
   }, [fetchProducts])
 
   useEffect(() => {
-    const cats = Array.from(
-      new Set(products.map((p) => p.category).filter(Boolean))
-    ) as string[]
-    setCategories(cats)
-  }, [products])
+    fetch('/api/categories')
+      .then((r) => r.json())
+      .then((data: { name: string; nameEn: string | null }[]) => setCategories(data))
+      .catch(() => {})
+  }, [])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -101,7 +101,9 @@ function ProductsContent() {
             >
               <option value="">{t('products_all_cats')}</option>
               {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
+                <option key={cat.name} value={cat.name}>
+                  {lang === 'en' && cat.nameEn ? cat.nameEn : cat.name}
+                </option>
               ))}
             </select>
 
