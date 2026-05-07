@@ -26,6 +26,11 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum ProductSource {
+  BC      // Imported from Business Central
+  MANUAL  // Created manually via the admin dashboard
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 model User {
@@ -167,6 +172,7 @@ model Product {
   category       String?         // Legacy BC category code (kept for BC sync)
   categoryId     String?         // FK to structured Category tree
   active         Boolean         @default(true)
+  source         ProductSource   @default(BC)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   productCategory Category?      @relation(fields: [categoryId], references: [id])
@@ -174,9 +180,11 @@ model Product {
   orderItems     OrderItem[]
 
   @@index([active])
+  @@index([source])
   @@index([category])
   @@index([categoryId])
   @@index([active, categoryId])
+  @@index([source, active])
 }
 
 // ─── Orders ──────────────────────────────────────────────────────────────────

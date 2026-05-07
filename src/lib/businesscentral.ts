@@ -199,7 +199,7 @@ export class BusinessCentralClient {
               stock: Math.floor(item.inventory),
               category: item.itemCategoryCode ?? null,
               imageUrl: item.picture ?? null,
-              active: true,
+              // Do NOT reset active — manual deactivations must survive a sync
             },
             create: {
               bcItemNo: item.number,
@@ -210,6 +210,7 @@ export class BusinessCentralClient {
               category: item.itemCategoryCode ?? null,
               imageUrl: item.picture ?? null,
               active: true,
+              source: 'BC',
             },
           })
         )

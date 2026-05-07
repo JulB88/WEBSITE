@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { canAccessDashboard, hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 import type { Product, Prisma } from '@prisma/client'
+import { randomBytes } from 'crypto'
 
 const MAX_LIMIT = 100
 const FEATURED_LIMIT = 8
@@ -55,11 +56,11 @@ export async function GET(req: NextRequest) {
       [allowedSortFields[sortField] ?? 'createdAt']: sortDir === 'asc' ? 'asc' : 'desc',
     }
 
-    // Only authenticated staff may view inactive products
     const session = await getServerSession(authOptions)
     const isStaff = !!session && canAccessDashboard(session.user.role as Role)
     const categoryId = searchParams.get('categoryId')?.trim() || ''
     const activeParam = searchParams.get('active')
+    const sourceParam = searchParams.get('source')?.trim() || ''
 
     const where: Prisma.ProductWhereInput = isStaff
       ? (activeParam !== '' && activeParam !== null ? { active: activeParam === 'true' } : {})
@@ -74,8 +75,10 @@ export async function GET(req: NextRequest) {
     }
     if (category) where.category = category
     if (categoryId) where.categoryId = categoryId
+    if (sourceParam === 'BC' || sourceParam === 'MANUAL') {
+      where.source = sourceParam
+    }
 
-    // Skip expensive count query for featured (limit is fixed, no pagination needed)
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
@@ -111,11 +114,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { bcItemNo, name, description, price, stock, imageUrl, category } = body
+    const { name, description, price, stock, imageUrl, categoryId } = body
+    let { sku } = body
 
-    if (!bcItemNo || typeof bcItemNo !== 'string' || bcItemNo.trim().length === 0) {
-      return NextResponse.json({ error: 'bcItemNo is required' }, { status: 400 })
-    }
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 })
     }
@@ -124,20 +125,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'price must be a non-negative number' }, { status: 400 })
     }
 
-    const duplicate = await prisma.product.findUnique({ where: { bcItemNo: bcItemNo.trim() } })
+    // Auto-generate SKU if not provided
+    if (!sku || !sku.trim()) {
+      sku = `MAN-${randomBytes(3).toString('hex').toUpperCase()}`
+    } else {
+      sku = sku.trim()
+    }
+
+    const duplicate = await prisma.product.findUnique({ where: { bcItemNo: sku } })
     if (duplicate) {
-      return NextResponse.json({ error: 'A product with this BC item number already exists' }, { status: 409 })
+      return NextResponse.json({ error: 'Ce SKU est déjà utilisé' }, { status: 409 })
     }
 
     const product = await prisma.product.create({
       data: {
-        bcItemNo: bcItemNo.trim(),
+        bcItemNo: sku,
         name: name.trim(),
         description: description?.trim() || null,
         price: parsedPrice,
         stock: Math.max(0, parseInt(stock ?? 0, 10) || 0),
         imageUrl: imageUrl?.trim() || null,
-        category: category?.trim() || null,
+        categoryId: categoryId || null,
+        source: 'MANUAL',
+        active: true,
       },
     })
 
