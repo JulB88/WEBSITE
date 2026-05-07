@@ -1,14 +1,22 @@
+export type ProductStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE'
+export type ProductSource = 'BC' | 'MANUAL'
+
 export interface Product {
   id: string
   bcItemNo: string
   name: string
+  nameEn?: string | null
   description?: string | null
+  descriptionEn?: string | null
   price: number
   displayPrice?: number
   stock: number
   imageUrl?: string | null
   category?: string | null
+  categoryId?: string | null
   active: boolean
+  status: ProductStatus
+  source: ProductSource
   createdAt: Date | string
   updatedAt: Date | string
 }

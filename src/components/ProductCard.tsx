@@ -2,7 +2,9 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { useState } from 'react'
 import { useCartStore } from '@/lib/cart-store'
+import { useI18n } from '@/lib/i18n'
 import type { Product } from '@/types'
 
 interface ProductCardProps {
@@ -11,7 +13,9 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, discountPercent = 0 }: ProductCardProps) {
+  const { t, lang } = useI18n()
   const addItem = useCartStore((state) => state.addItem)
+  const [added, setAdded] = useState(false)
 
   const displayPrice =
     product.displayPrice !== undefined
@@ -19,6 +23,8 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
       : product.price * (1 - discountPercent / 100)
 
   const hasDiscount = displayPrice < product.price
+
+  const displayName = (lang === 'en' && product.nameEn) ? product.nameEn : product.name
 
   const handleAddToCart = () => {
     addItem({
@@ -30,7 +36,15 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
       bcItemNo: product.bcItemNo,
       category: product.category,
     })
+    setAdded(true)
+    setTimeout(() => setAdded(false), 1800)
   }
+
+  const stockLabel = product.stock === 0
+    ? t('out_of_stock')
+    : product.stock <= 10
+      ? t('low_stock', { n: product.stock })
+      : t('in_stock')
 
   return (
     <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', overflow: 'hidden', transition: 'box-shadow 0.2s' }}
@@ -41,7 +55,7 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
           {product.imageUrl ? (
             <Image
               src={product.imageUrl}
-              alt={product.name}
+              alt={displayName}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -57,7 +71,7 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: '#e51937' }} />
           {product.stock === 0 && (
             <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.1em' }}>Épuisé</span>
+              <span style={{ color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.1em' }}>{t('out_of_stock')}</span>
             </div>
           )}
           {hasDiscount && (
@@ -79,7 +93,7 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
         <Link href={`/products/${product.id}`} style={{ textDecoration: 'none' }}>
           <h3 style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1f2232', lineHeight: 1.3, marginBottom: '0.6rem', textTransform: 'uppercase' }}
               className="line-clamp-2 hover:text-[#e51937] transition-colors">
-            {product.name}
+            {displayName}
           </h3>
         </Link>
 
@@ -97,7 +111,7 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
 
         {/* Stock */}
         <p style={{ fontSize: '0.7rem', color: '#6b7280', marginBottom: '0.75rem', fontWeight: 500 }}>
-          {product.stock > 10 ? '✓ En stock' : product.stock > 0 ? `Il reste ${product.stock}` : 'Épuisé'}
+          {stockLabel}
         </p>
 
         {/* Add to cart */}
@@ -106,7 +120,7 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
           disabled={product.stock === 0}
           style={{
             width: '100%',
-            backgroundColor: product.stock === 0 ? '#e5e7eb' : '#e51937',
+            backgroundColor: product.stock === 0 ? '#e5e7eb' : added ? '#16a34a' : '#e51937',
             color: product.stock === 0 ? '#9ca3af' : '#fff',
             padding: '10px 16px',
             fontWeight: 700,
@@ -117,10 +131,10 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
             cursor: product.stock === 0 ? 'not-allowed' : 'pointer',
             transition: 'background-color 0.2s',
           }}
-          onMouseEnter={e => { if (product.stock > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#333' }}
-          onMouseLeave={e => { if (product.stock > 0) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#e51937' }}
+          onMouseEnter={e => { if (product.stock > 0 && !added) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#333' }}
+          onMouseLeave={e => { if (product.stock > 0 && !added) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#e51937' }}
         >
-          {product.stock === 0 ? 'Épuisé' : 'Ajouter au panier'}
+          {product.stock === 0 ? t('out_of_stock') : added ? t('added_to_cart') : t('add_to_cart')}
         </button>
       </div>
     </div>

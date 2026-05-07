@@ -4,9 +4,9 @@ import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import ProductCard from '@/components/ProductCard'
+import { useI18n } from '@/lib/i18n'
 import type { Product } from '@/types'
 
-// Map UI sort labels to API format (field_direction)
 const sortApiMap: Record<string, string> = {
   newest: 'createdAt_desc',
   'price-asc': 'price_asc',
@@ -14,9 +14,9 @@ const sortApiMap: Record<string, string> = {
   name: 'name_asc',
 }
 
-// Inner component that uses useSearchParams — must be inside <Suspense>
 function ProductsContent() {
   const { data: session } = useSession()
+  const { t } = useI18n()
   const searchParams = useSearchParams()
 
   const [products, setProducts] = useState<Product[]>([])
@@ -64,33 +64,31 @@ function ProductsContent() {
   }
 
   return (
-    <div className="py-8">
+    <div style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
       <div className="container">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Products</h1>
-          <p className="text-gray-500">Browse our full catalog of products</p>
+        <div style={{ marginBottom: '2rem' }}>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#1f2232', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '0.25rem' }}>
+            {t('products_title')}
+          </h1>
+          <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>{t('products_sub')}</p>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-8">
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '3px solid #e51937', padding: '1rem', marginBottom: '2rem' }}>
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search */}
-            <form onSubmit={handleSearch} className="flex-1">
-              <div className="relative">
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+            <form onSubmit={handleSearch} style={{ flex: 1 }}>
+              <div style={{ position: 'relative' }}>
+                <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: '#9ca3af' }}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search products..."
-                  className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder={t('products_search')}
+                  style={{ width: '100%', paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, border: '1px solid #e5e7eb', fontSize: '0.85rem', outline: 'none' }}
                 />
               </div>
             </form>
@@ -99,13 +97,11 @@ function ProductsContent() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white min-w-[160px]"
+              style={{ padding: '10px 12px', border: '1px solid #e5e7eb', fontSize: '0.85rem', minWidth: 160, background: '#fff' }}
             >
-              <option value="">All Categories</option>
+              <option value="">{t('products_all_cats')}</option>
               {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
+                <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
 
@@ -113,45 +109,34 @@ function ProductsContent() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white min-w-[160px]"
+              style={{ padding: '10px 12px', border: '1px solid #e5e7eb', fontSize: '0.85rem', minWidth: 160, background: '#fff' }}
             >
-              <option value="newest">Newest First</option>
-              <option value="price-asc">Price: Low to High</option>
-              <option value="price-desc">Price: High to Low</option>
-              <option value="name">Name A-Z</option>
+              <option value="newest">{t('products_sort_newest')}</option>
+              <option value="price-asc">{t('products_sort_price_asc')}</option>
+              <option value="price-desc">{t('products_sort_price_desc')}</option>
+              <option value="name">{t('products_sort_name')}</option>
             </select>
           </div>
         </div>
 
         {/* Business pricing notice */}
         {session?.user.businessCustomerId && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
-            <p className="text-amber-800 text-sm font-medium">
-              Business pricing is active. Your discounted prices are shown below.
-            </p>
+          <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fcd34d', padding: '0.75rem 1rem', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#92400e', fontWeight: 500 }}>
+            {t('home_b2b_sub')}
           </div>
         )}
 
         {/* Results count */}
         {!loading && (
-          <p className="text-sm text-gray-500 mb-4">
-            {products.length} product{products.length !== 1 ? 's' : ''} found
+          <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginBottom: '1rem' }}>
+            {t('cart_items', { n: products.length })}
           </p>
         )}
 
         {/* Product Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse">
-                <div className="h-48 bg-gray-200" />
-                <div className="p-4 space-y-3">
-                  <div className="h-4 bg-gray-200 rounded w-3/4" />
-                  <div className="h-3 bg-gray-200 rounded w-1/2" />
-                  <div className="h-8 bg-gray-200 rounded" />
-                </div>
-              </div>
-            ))}
+          <div style={{ textAlign: 'center', padding: '4rem 0', color: '#9ca3af', fontSize: '1rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {t('products_loading')}
           </div>
         ) : products.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -160,12 +145,11 @@ function ProductsContent() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 text-gray-400">
+          <div style={{ textAlign: 'center', padding: '4rem 0', color: '#9ca3af' }}>
             <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-lg font-medium">No products found</p>
-            <p className="text-sm mt-1">Try adjusting your filters or search term</p>
+            <p style={{ fontSize: '1rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('products_none')}</p>
           </div>
         )}
       </div>
@@ -173,17 +157,16 @@ function ProductsContent() {
   )
 }
 
-// Skeleton shown while Suspense resolves
 function ProductsPageSkeleton() {
   return (
-    <div className="py-8">
+    <div style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
       <div className="container">
         <div className="h-8 bg-gray-200 rounded w-48 mb-2 animate-pulse" />
         <div className="h-4 bg-gray-200 rounded w-64 mb-8 animate-pulse" />
-        <div className="h-16 bg-white rounded-xl border border-gray-200 mb-8 animate-pulse" />
+        <div className="h-16 bg-white border border-gray-200 mb-8 animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse">
+            <div key={i} className="bg-white border border-gray-200 overflow-hidden animate-pulse">
               <div className="h-48 bg-gray-200" />
               <div className="p-4 space-y-3">
                 <div className="h-4 bg-gray-200 rounded w-3/4" />

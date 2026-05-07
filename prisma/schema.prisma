@@ -31,6 +31,12 @@ enum ProductSource {
   MANUAL  // Created manually via the admin dashboard
 }
 
+enum ProductStatus {
+  DRAFT     // Missing required fields — hidden from store, cannot be activated
+  ACTIVE    // All required fields present, visible in store
+  INACTIVE  // All required fields present, hidden from store by choice
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 model User {
@@ -173,6 +179,9 @@ model Product {
   categoryId     String?         // FK to structured Category tree
   active         Boolean         @default(true)
   source         ProductSource   @default(BC)
+  status         ProductStatus   @default(DRAFT)
+  nameEn         String?
+  descriptionEn  String?         @db.Text
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   productCategory Category?      @relation(fields: [categoryId], references: [id])
@@ -181,6 +190,7 @@ model Product {
 
   @@index([active])
   @@index([source])
+  @@index([status])
   @@index([category])
   @@index([categoryId])
   @@index([active, categoryId])

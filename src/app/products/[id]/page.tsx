@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/cart-store'
+import { useI18n } from '@/lib/i18n'
 import type { Product } from '@/types'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
@@ -13,6 +14,7 @@ import Button from '@/components/ui/Button'
 export default function ProductDetailPage() {
   const params = useParams()
   const { data: session } = useSession()
+  const { t, lang } = useI18n()
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
@@ -72,9 +74,9 @@ export default function ProductDetailPage() {
   if (!product) {
     return (
       <div className="container py-12 text-center">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Product not found</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('product_not_found')}</h2>
         <Link href="/products" className="text-primary-600 hover:text-primary-700">
-          Back to products
+          {t('product_not_found_link')}
         </Link>
       </div>
     )
@@ -84,15 +86,18 @@ export default function ProductDetailPage() {
   const hasDiscount = displayPrice < product.price
   const savings = product.price - displayPrice
 
+  const displayName = (lang === 'en' && product.nameEn) ? product.nameEn : product.name
+  const displayDescription = (lang === 'en' && product.descriptionEn) ? product.descriptionEn : product.description
+
   return (
     <div className="container py-8">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-gray-500 mb-8">
-        <Link href="/" className="hover:text-primary-600">Home</Link>
+        <Link href="/" className="hover:text-primary-600">{t('breadcrumb_home')}</Link>
         <span>/</span>
-        <Link href="/products" className="hover:text-primary-600">Products</Link>
+        <Link href="/products" className="hover:text-primary-600">{t('breadcrumb_products')}</Link>
         <span>/</span>
-        <span className="text-gray-900 font-medium truncate">{product.name}</span>
+        <span className="text-gray-900 font-medium truncate">{displayName}</span>
       </nav>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -101,7 +106,7 @@ export default function ProductDetailPage() {
           {product.imageUrl ? (
             <Image
               src={product.imageUrl}
-              alt={product.name}
+              alt={displayName}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 50vw"
@@ -123,8 +128,8 @@ export default function ProductDetailPage() {
             </Badge>
           )}
 
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
-          <p className="text-sm text-gray-500 mb-4">Item No: {product.bcItemNo}</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{displayName}</h1>
+          <p className="text-sm text-gray-500 mb-4">{t('item_no')} {product.bcItemNo}</p>
 
           {/* Price */}
           <div className="flex items-baseline gap-3 mb-2">
@@ -133,7 +138,7 @@ export default function ProductDetailPage() {
               <>
                 <span className="text-xl text-gray-400 line-through">${product.price.toFixed(2)}</span>
                 <Badge variant="success">
-                  Save ${savings.toFixed(2)}
+                  -{Math.round(((product.price - displayPrice) / product.price) * 100)}%
                 </Badge>
               </>
             )}
@@ -144,33 +149,33 @@ export default function ProductDetailPage() {
             {product.stock > 10 ? (
               <span className="flex items-center gap-1 text-green-600 text-sm font-medium">
                 <span className="w-2 h-2 bg-green-500 rounded-full" />
-                In stock ({product.stock} available)
+                {t('in_stock')}
               </span>
             ) : product.stock > 0 ? (
               <span className="flex items-center gap-1 text-amber-600 text-sm font-medium">
                 <span className="w-2 h-2 bg-amber-500 rounded-full" />
-                Low stock — only {product.stock} left
+                {t('low_stock', { n: product.stock })}
               </span>
             ) : (
               <span className="flex items-center gap-1 text-red-600 text-sm font-medium">
                 <span className="w-2 h-2 bg-red-500 rounded-full" />
-                Out of stock
+                {t('out_of_stock')}
               </span>
             )}
           </div>
 
           {/* Description */}
-          {product.description && (
+          {displayDescription && (
             <div className="mb-8">
-              <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
-              <p className="text-gray-600 leading-relaxed">{product.description}</p>
+              <h3 className="font-semibold text-gray-900 mb-2">{t('description')}</h3>
+              <p className="text-gray-600 leading-relaxed">{displayDescription}</p>
             </div>
           )}
 
           {/* Quantity selector */}
           {product.stock > 0 && (
             <div className="flex items-center gap-4 mb-6">
-              <span className="text-sm font-medium text-gray-700">Quantity:</span>
+              <span className="text-sm font-medium text-gray-700">{t('quantity')}</span>
               <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -207,21 +212,21 @@ export default function ProductDetailPage() {
             fullWidth
             className="mb-4"
           >
-            {added ? '✓ Added to Cart!' : product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+            {added ? t('added_to_cart') : product.stock === 0 ? t('out_of_stock') : t('add_to_cart')}
           </Button>
 
           <Link
             href="/checkout"
             className="block text-center text-sm text-gray-600 hover:text-primary-600 transition-colors"
           >
-            Proceed to checkout →
+            {t('proceed_checkout')}
           </Link>
 
           {/* Business pricing note */}
           {session?.user.businessCustomerId && hasDiscount && (
             <div className="mt-6 p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <p className="text-amber-800 text-sm">
-                Business customer pricing applied. You save ${savings.toFixed(2)} on this item.
+                {t('b2b_savings', { n: savings.toFixed(2) })}
               </p>
             </div>
           )}

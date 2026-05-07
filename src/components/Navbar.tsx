@@ -5,12 +5,14 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useSession, signOut } from 'next-auth/react'
 import { useCartStore } from '@/lib/cart-store'
+import { useI18n } from '@/lib/i18n'
 import CartSidebar from './CartSidebar'
 
 const STAFF_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CUSTOMER_SERVICE']
 
 export default function Navbar() {
   const { data: session } = useSession()
+  const { t, lang, setLang } = useI18n()
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isAccountOpen, setIsAccountOpen] = useState(false)
@@ -40,11 +42,6 @@ export default function Navbar() {
     textDecoration: 'none',
   }
 
-  const navLinks = [
-    { href: '/', label: 'Accueil' },
-    { href: '/products', label: 'Produits' },
-  ]
-
   return (
     <>
       {/* Top accent bar */}
@@ -61,7 +58,10 @@ export default function Navbar() {
 
             {/* Desktop nav links */}
             <div className="hidden md:flex items-center">
-              {navLinks.map(({ href, label }) => (
+              {[
+                { href: '/', label: t('nav_home') },
+                { href: '/products', label: t('nav_products') },
+              ].map(({ href, label }) => (
                 <Link
                   key={href}
                   href={href}
@@ -76,10 +76,36 @@ export default function Navbar() {
 
             {/* Right side */}
             <div className="flex items-center gap-2">
+
+              {/* Lang toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginRight: 4 }}>
+                {(['fr', 'en'] as const).map((l, i) => (
+                  <button
+                    key={l}
+                    onClick={() => setLang(l)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: lang === l ? '#e51937' : 'rgba(255,255,255,0.55)',
+                      fontWeight: lang === l ? 700 : 500,
+                      fontSize: '0.72rem',
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      padding: '2px 4px',
+                      transition: 'color 0.2s',
+                    }}
+                    aria-label={`Langue ${l.toUpperCase()}`}
+                  >
+                    {l.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
               {/* Cart */}
               <button
                 onClick={() => setIsCartOpen(true)}
-                aria-label="Ouvrir le panier"
+                aria-label={t('cart_title')}
                 style={{ position: 'relative', padding: '8px', color: '#fff', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
                 onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
                 onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
@@ -111,7 +137,7 @@ export default function Navbar() {
                         onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#c0102a')}
                         onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#e51937')}
                       >
-                        Dashboard
+                        {t('nav_dashboard')}
                       </Link>
                     )}
 
@@ -137,7 +163,7 @@ export default function Navbar() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                         <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {session.user.name?.split(' ')[0] || 'Mon compte'}
+                          {session.user.name?.split(' ')[0] || t('nav_account')}
                         </span>
                         <svg style={{ width: 12, height: 12, transition: 'transform 0.2s', transform: isAccountOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -159,8 +185,8 @@ export default function Navbar() {
                             <p style={{ fontSize: '0.72rem', color: '#6b7280', marginTop: 2 }}>{session.user.email}</p>
                           </div>
                           {[
-                            { href: '/account', label: 'Mon profil' },
-                            { href: '/account/orders', label: 'Mes commandes' },
+                            { href: '/account', label: t('nav_account') },
+                            { href: '/account/orders', label: t('nav_orders') },
                           ].map(({ href, label }) => (
                             <Link
                               key={href}
@@ -180,7 +206,7 @@ export default function Navbar() {
                               onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#fef2f2')}
                               onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                             >
-                              Déconnexion
+                              {t('nav_logout')}
                             </button>
                           </div>
                         </div>
@@ -195,7 +221,7 @@ export default function Navbar() {
                       onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
                       onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
                     >
-                      Connexion
+                      {t('nav_login')}
                     </Link>
                     <Link
                       href="/auth/register"
@@ -203,7 +229,7 @@ export default function Navbar() {
                       onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#c0102a')}
                       onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#e51937')}
                     >
-                      S'inscrire
+                      {t('nav_register')}
                     </Link>
                   </>
                 )}
@@ -229,7 +255,10 @@ export default function Navbar() {
           {/* Mobile menu */}
           {isMobileMenuOpen && (
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-              {navLinks.map(({ href, label }) => (
+              {[
+                { href: '/', label: t('nav_home') },
+                { href: '/products', label: t('nav_products') },
+              ].map(({ href, label }) => (
                 <Link
                   key={href}
                   href={href}
@@ -242,19 +271,31 @@ export default function Navbar() {
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {session ? (
                   <>
-                    <Link href="/account" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>Mon profil</Link>
-                    <Link href="/account/orders" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>Mes commandes</Link>
+                    <Link href="/account" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>{t('nav_account')}</Link>
+                    <Link href="/account/orders" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>{t('nav_orders')}</Link>
                     {isStaff && (
-                      <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#e51937', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}>Dashboard</Link>
+                      <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#e51937', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}>{t('nav_dashboard')}</Link>
                     )}
-                    <button onClick={() => { signOut({ callbackUrl: '/' }); setIsMobileMenuOpen(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 0', color: '#e51937', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500 }}>Déconnexion</button>
+                    <button onClick={() => { signOut({ callbackUrl: '/' }); setIsMobileMenuOpen(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 0', color: '#e51937', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500 }}>{t('nav_logout')}</button>
                   </>
                 ) : (
                   <>
-                    <Link href="/auth/login"    onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>Connexion</Link>
-                    <Link href="/auth/register" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#e51937', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none' }}>S'inscrire</Link>
+                    <Link href="/auth/login"    onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>{t('nav_login')}</Link>
+                    <Link href="/auth/register" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#e51937', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none' }}>{t('nav_register')}</Link>
                   </>
                 )}
+                {/* Mobile lang toggle */}
+                <div style={{ display: 'flex', gap: 8, paddingTop: 8 }}>
+                  {(['fr', 'en'] as const).map(l => (
+                    <button
+                      key={l}
+                      onClick={() => setLang(l)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: lang === l ? '#e51937' : 'rgba(255,255,255,0.55)', fontWeight: lang === l ? 700 : 500, fontSize: '0.8rem', textTransform: 'uppercase', padding: '4px 0' }}
+                    >
+                      {l.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

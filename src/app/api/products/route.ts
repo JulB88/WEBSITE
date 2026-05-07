@@ -6,6 +6,7 @@ import { canAccessDashboard, hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 import type { Product, Prisma } from '@prisma/client'
 import { randomBytes } from 'crypto'
+import { computeProductStatus } from '@/lib/product-utils'
 
 const MAX_LIMIT = 100
 const FEATURED_LIMIT = 8
@@ -61,10 +62,15 @@ export async function GET(req: NextRequest) {
     const categoryId = searchParams.get('categoryId')?.trim() || ''
     const activeParam = searchParams.get('active')
     const sourceParam = searchParams.get('source')?.trim() || ''
+    const statusParam = searchParams.get('status')?.trim() || ''
 
     const where: Prisma.ProductWhereInput = isStaff
       ? (activeParam !== '' && activeParam !== null ? { active: activeParam === 'true' } : {})
-      : { active: true }
+      : { active: true, status: 'ACTIVE' }
+
+    if (statusParam && ['DRAFT', 'ACTIVE', 'INACTIVE'].includes(statusParam)) {
+      where.status = statusParam as any
+    }
 
     if (search) {
       where.OR = [
@@ -114,7 +120,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { name, description, price, stock, imageUrl, categoryId } = body
+    const { name, description, price, stock, imageUrl, categoryId, nameEn, descriptionEn } = body
     let { sku } = body
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -137,17 +143,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ce SKU est déjà utilisé' }, { status: 409 })
     }
 
+    const parsedStock = Math.max(0, parseInt(stock ?? 0, 10) || 0)
+    const trimmedDescription = description?.trim() || null
+    const status = computeProductStatus(
+      { name: name.trim(), categoryId: categoryId || null, price: parsedPrice, description: trimmedDescription },
+      'ACTIVE'
+    )
+
     const product = await prisma.product.create({
       data: {
         bcItemNo: sku,
         name: name.trim(),
-        description: description?.trim() || null,
+        nameEn: nameEn?.trim() || null,
+        description: trimmedDescription,
+        descriptionEn: descriptionEn?.trim() || null,
         price: parsedPrice,
-        stock: Math.max(0, parseInt(stock ?? 0, 10) || 0),
+        stock: parsedStock,
         imageUrl: imageUrl?.trim() || null,
         categoryId: categoryId || null,
         source: 'MANUAL',
-        active: true,
+        active: status === 'ACTIVE',
+        status,
       },
     })
 

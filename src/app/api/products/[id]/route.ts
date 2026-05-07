@@ -49,9 +49,29 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     }
 
     const body = await req.json()
+    const { computeProductStatus } = await import('@/lib/product-utils')
+
+    const current = await prisma.product.findUnique({ where: { id } })
+    if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
     const data: any = {}
     if ('categoryId' in body) data.categoryId = body.categoryId ?? null
     if ('active' in body) data.active = Boolean(body.active)
+    if ('nameEn' in body) data.nameEn = body.nameEn?.trim() || null
+    if ('descriptionEn' in body) data.descriptionEn = body.descriptionEn?.trim() || null
+    if ('name' in body) data.name = body.name
+    if ('description' in body) data.description = body.description
+    if ('price' in body) data.price = body.price
+    if ('stock' in body) data.stock = body.stock
+    if ('imageUrl' in body) data.imageUrl = body.imageUrl
+
+    // Recompute status based on merged fields
+    const merged = { ...current, ...data }
+    const intent = merged.active ? 'ACTIVE' : 'INACTIVE'
+    data.status = computeProductStatus(
+      { name: merged.name, categoryId: merged.categoryId, price: merged.price, description: merged.description },
+      intent
+    )
 
     const product = await prisma.product.update({ where: { id }, data })
     return NextResponse.json(product)
@@ -70,15 +90,25 @@ export async function PUT(req: NextRequest, { params }: Context) {
     }
 
     const body = await req.json()
+    const { computeProductStatus } = await import('@/lib/product-utils')
+    const intent = body.active ? 'ACTIVE' : 'INACTIVE'
+    const status = computeProductStatus(
+      { name: body.name, categoryId: body.categoryId, price: body.price, description: body.description },
+      intent
+    )
     const product = await prisma.product.update({
       where: { id },
       data: {
         name: body.name,
+        nameEn: body.nameEn?.trim() || null,
         description: body.description,
+        descriptionEn: body.descriptionEn?.trim() || null,
         price: body.price,
         stock: body.stock,
         imageUrl: body.imageUrl,
+        categoryId: body.categoryId ?? null,
         active: body.active,
+        status,
       },
     })
 

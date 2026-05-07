@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useI18n } from '@/lib/i18n'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 
@@ -11,6 +12,7 @@ type AccountType = 'personal' | 'business'
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { t } = useI18n()
 
   const [accountType, setAccountType] = useState<AccountType>('personal')
   const [form, setForm] = useState({
@@ -37,7 +39,7 @@ export default function RegisterPage() {
       return
     }
     if (accountType === 'business' && !form.companyName) {
-      setError('Le nom de l\'entreprise est requis pour les comptes B2B.')
+      setError("Le nom de l'entreprise est requis pour les comptes B2B.")
       return
     }
 
@@ -85,11 +87,11 @@ export default function RegisterPage() {
         <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '4px solid #e51937', padding: '2.5rem' }}>
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <h1 style={{ fontSize: '1.4rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232' }}>
-              Créer un compte
+              {t('register_title')}
             </h1>
             <div style={{ width: 40, height: 3, backgroundColor: '#e51937', margin: '0.6rem auto 0.75rem' }} />
             <p style={{ fontSize: '0.85rem', fontWeight: 300, color: '#6b7280' }}>
-              Rejoignez DSF — Distribution professionnelle
+              {t('register_sub')}
             </p>
           </div>
 
@@ -97,7 +99,7 @@ export default function RegisterPage() {
             {/* Account type */}
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#374151', marginBottom: '0.5rem' }}>
-                Type de compte
+                {t('register_account_type')}
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 {(['personal', 'business'] as AccountType[]).map((type) => (
@@ -118,14 +120,14 @@ export default function RegisterPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    {type === 'personal' ? 'Personnel' : 'Entreprise B2B'}
+                    {type === 'personal' ? t('register_personal') : t('register_business')}
                   </button>
                 ))}
               </div>
             </div>
 
             <Input
-              label="Nom complet"
+              label={t('register_name')}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="Jean Tremblay"
@@ -133,7 +135,7 @@ export default function RegisterPage() {
               autoComplete="name"
             />
             <Input
-              label="Adresse courriel"
+              label={t('register_email')}
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -142,17 +144,17 @@ export default function RegisterPage() {
               autoComplete="email"
             />
             <Input
-              label="Mot de passe"
+              label={t('register_password')}
               type="password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               placeholder="Minimum 8 caractères"
               required
               autoComplete="new-password"
-              helperText="Au moins 8 caractères"
+              helperText={t('register_password_hint')}
             />
             <Input
-              label="Confirmer le mot de passe"
+              label={t('register_confirm')}
               type="password"
               value={form.confirmPassword}
               onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
@@ -164,17 +166,17 @@ export default function RegisterPage() {
             {accountType === 'business' && (
               <div style={{ border: '1px solid #fde68a', backgroundColor: '#fffbeb', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Informations entreprise
+                  {t('account_business')}
                 </p>
                 <Input
-                  label="Nom de l'entreprise"
+                  label={t('register_company')}
                   value={form.companyName}
                   onChange={(e) => setForm({ ...form, companyName: e.target.value })}
                   placeholder="Construction Tremblay inc."
                   required={accountType === 'business'}
                 />
                 <Input
-                  label="Numéro de TPS/TVQ (optionnel)"
+                  label={t('register_vat')}
                   value={form.vatNumber}
                   onChange={(e) => setForm({ ...form, vatNumber: e.target.value })}
                   placeholder="Ex. 123456789 RT0001"
@@ -189,14 +191,14 @@ export default function RegisterPage() {
             )}
 
             <Button type="submit" fullWidth size="lg" isLoading={loading}>
-              {loading ? 'Création en cours…' : 'Créer mon compte'}
+              {loading ? t('register_submitting') : t('register_submit')}
             </Button>
           </form>
 
           <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: '#6b7280' }}>
-            Déjà un compte ?{' '}
+            {t('register_has_account')}{' '}
             <Link href="/auth/login" style={{ color: '#e51937', fontWeight: 600, textDecoration: 'none' }}>
-              Se connecter
+              {t('register_login')}
             </Link>
           </p>
         </div>
