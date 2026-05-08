@@ -532,6 +532,7 @@ async function main() {
         category:    p.category,
         categoryId:  catId,
         active:      true,
+        status:      'ACTIVE',
       },
       update: {
         name:        p.name,
@@ -541,6 +542,7 @@ async function main() {
         category:    p.category,
         categoryId:  catId,
         active:      true,
+        status:      'ACTIVE',
       },
     })
     console.log(`  ✓ ${p.bcItemNo}  ${p.name.slice(0, 60)}`)
