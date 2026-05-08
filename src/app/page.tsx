@@ -41,12 +41,19 @@ async function getCategories(): Promise<CategoryBilingual[]> {
   })
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ])
+}
+
 export default async function HomePage() {
   const session = await getServerSession(authOptions)
 
   const [products, categories] = await Promise.all([
-    getFeaturedProducts(session?.user.businessCustomerId).catch(() => [] as Product[]),
-    getCategories().catch(() => [] as CategoryBilingual[]),
+    withTimeout(getFeaturedProducts(session?.user.businessCustomerId).catch(() => [] as Product[]), 5000, [] as Product[]),
+    withTimeout(getCategories().catch(() => [] as CategoryBilingual[]), 5000, [] as CategoryBilingual[]),
   ])
 
   return (
