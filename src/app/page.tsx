@@ -43,8 +43,11 @@ async function getCategories(): Promise<CategoryBilingual[]> {
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions)
-  const products = await getFeaturedProducts(session?.user.businessCustomerId)
-  const categories = await getCategories()
+
+  const [products, categories] = await Promise.all([
+    getFeaturedProducts(session?.user.businessCustomerId).catch(() => [] as Product[]),
+    getCategories().catch(() => [] as CategoryBilingual[]),
+  ])
 
   return (
     <HomeClient
