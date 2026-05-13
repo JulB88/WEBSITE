@@ -18,6 +18,7 @@ const ALLOWED_KEYS = new Set([
   'bc_client_secret',
   'bc_environment',
   'bc_company_id',
+  'site_lock_enabled',
 ])
 
 const SECRET_KEYS = new Set([
@@ -41,12 +42,17 @@ export async function GET() {
     where: { key: { in: [...ALLOWED_KEYS] } },
   })
 
-  const result: Record<string, string> = {}
+  const settings: Record<string, string> = {}
   for (const row of rows) {
-    result[row.key] = SECRET_KEYS.has(row.key) ? maskSecret(row.value) : row.value
+    settings[row.key] = SECRET_KEYS.has(row.key) ? maskSecret(row.value) : row.value
   }
 
-  return NextResponse.json(result)
+  // site_lock_enabled defaults to true if SITE_TOKEN is configured and not set in DB
+  if (!('site_lock_enabled' in settings) && process.env.SITE_TOKEN) {
+    settings.site_lock_enabled = 'true'
+  }
+
+  return NextResponse.json({ settings })
 }
 
 export async function POST(req: NextRequest) {
@@ -60,12 +66,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  for (const [key, value] of Object.entries(body)) {
-    // Reject unknown keys
+  // Accept both flat { key: value } and wrapped { settings: { key: value } }
+  const entries = body.settings ?? body
+
+  for (const [key, value] of Object.entries(entries)) {
     if (!ALLOWED_KEYS.has(key)) continue
     if (typeof value !== 'string') continue
-    // Skip — user didn't change a masked secret
-    if (value.includes('••••')) continue
+    if (value.includes('••••')) continue   // Skip — masked secret not changed
 
     if (value.trim() === '') {
       await prisma.setting.deleteMany({ where: { key } })

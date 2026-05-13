@@ -9,7 +9,7 @@ const LOCK_COOKIE = '__site_lock'
 // Paths that bypass the site password gate entirely
 const SITE_LOCK_BYPASS = [
   '/site-lock',
-  '/api/site-lock',
+  '/api/site-lock',   // includes /api/site-lock/check
   '/_next',
   '/favicon.ico',
   '/robots.txt',
@@ -22,11 +22,27 @@ export async function proxy(req: NextRequest) {
   const siteToken = process.env.SITE_TOKEN
   if (siteToken && !SITE_LOCK_BYPASS.some((p) => pathname.startsWith(p))) {
     const cookie = req.cookies.get(LOCK_COOKIE)?.value
+
     if (cookie !== siteToken) {
-      const url = req.nextUrl.clone()
-      url.pathname = '/site-lock'
-      url.searchParams.set('from', pathname)
-      return NextResponse.redirect(url)
+      // Check if admin has disabled the lock from the dashboard
+      let lockEnabled = true
+      try {
+        const checkUrl = new URL('/api/site-lock/check', req.url)
+        const checkRes = await fetch(checkUrl.toString())
+        if (checkRes.ok) {
+          const data = await checkRes.json() as { enabled: boolean }
+          lockEnabled = data.enabled
+        }
+      } catch {
+        // DB unavailable → default to locked (safe)
+      }
+
+      if (lockEnabled) {
+        const url = req.nextUrl.clone()
+        url.pathname = '/site-lock'
+        url.searchParams.set('from', pathname)
+        return NextResponse.redirect(url)
+      }
     }
   }
 
