@@ -4,9 +4,33 @@ import { canAccessDashboard } from './lib/permissions'
 import type { Role } from './lib/permissions'
 
 const secret = process.env.NEXTAUTH_SECRET
+const LOCK_COOKIE = '__site_lock'
+
+// Paths that bypass the site password gate entirely
+const SITE_LOCK_BYPASS = [
+  '/site-lock',
+  '/api/site-lock',
+  '/_next',
+  '/favicon.ico',
+  '/robots.txt',
+]
 
 export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname
+
+  // ── 1. Site password gate ───────────────────────────────────────────────────
+  const siteToken = process.env.SITE_TOKEN
+  if (siteToken && !SITE_LOCK_BYPASS.some((p) => pathname.startsWith(p))) {
+    const cookie = req.cookies.get(LOCK_COOKIE)?.value
+    if (cookie !== siteToken) {
+      const url = req.nextUrl.clone()
+      url.pathname = '/site-lock'
+      url.searchParams.set('from', pathname)
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // ── 2. Auth-protected routes ────────────────────────────────────────────────
   const isApiRoute = pathname.startsWith('/api/')
   const isAdminPath = pathname.startsWith('/admin') || pathname.startsWith('/api/admin')
   const isDashboardPath = pathname.startsWith('/dashboard') || pathname.startsWith('/api/dashboard')
@@ -51,11 +75,6 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/account/:path*',
-    '/checkout/:path*',
-    '/admin/:path*',
-    '/api/admin/:path*',
-    '/dashboard/:path*',
-    '/api/dashboard/:path*',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }
