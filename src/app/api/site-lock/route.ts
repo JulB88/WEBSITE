@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 
 const LOCK_COOKIE = '__site_lock'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 days
@@ -7,7 +8,9 @@ export async function POST(req: NextRequest) {
   try {
     const { password } = await req.json()
 
-    const sitePassword = process.env.SITE_PASSWORD
+    // DB setting takes priority over env var — allows changing password from dashboard
+    const dbRow = await prisma.setting.findUnique({ where: { key: 'site_password' } })
+    const sitePassword = dbRow?.value || process.env.SITE_PASSWORD
     const siteToken = process.env.SITE_TOKEN
 
     if (!sitePassword || !siteToken) {

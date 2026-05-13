@@ -19,6 +19,7 @@ const ALLOWED_KEYS = new Set([
   'bc_environment',
   'bc_company_id',
   'site_lock_enabled',
+  'site_password',   // Site access password — stored in DB, overrides SITE_PASSWORD env var
 ])
 
 const SECRET_KEYS = new Set([
@@ -50,6 +51,11 @@ export async function GET() {
   // site_lock_enabled defaults to true if SITE_TOKEN is configured and not set in DB
   if (!('site_lock_enabled' in settings) && process.env.SITE_TOKEN) {
     settings.site_lock_enabled = 'true'
+  }
+
+  // site_password fallback to env var if not overridden in DB
+  if (!('site_password' in settings) && process.env.SITE_PASSWORD) {
+    settings.site_password = process.env.SITE_PASSWORD
   }
 
   return NextResponse.json({ settings })
