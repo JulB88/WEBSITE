@@ -62,8 +62,8 @@ export const ROLE_META: Record<
     color: 'bg-cyan-100 text-cyan-700',
   },
   BUSINESS: {
-    label: 'Business Customer',
-    description: 'Business account with custom pricing and VAT',
+    label: 'Compte entrepreneur',
+    description: 'Compte entrepreneur avec tarification personnalisée et numéro de client',
     color: 'bg-amber-100 text-amber-700',
   },
   CUSTOMER: {

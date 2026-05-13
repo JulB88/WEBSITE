@@ -8,6 +8,8 @@ interface BusinessCustomer {
   id: string
   companyName: string
   vatNumber: string | null
+  customerNo: string | null
+  accountRequestType: string | null
   discountPercent: number
   priceListId: string | null
 }
@@ -28,7 +30,7 @@ const ROLES: Role[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CUSTOMER_SERVICE', 'B
 
 const EMPTY_FORM = {
   email: '', name: '', password: '', role: 'CUSTOMER' as Role,
-  companyName: '', vatNumber: '', discountPercent: '0', priceListId: '',
+  companyName: '', vatNumber: '', customerNo: '', discountPercent: '0', priceListId: '',
 }
 
 export default function CustomersPage() {
@@ -86,6 +88,7 @@ export default function CustomersPage() {
       role: u.role,
       companyName: u.businessCustomer?.companyName ?? '',
       vatNumber: u.businessCustomer?.vatNumber ?? '',
+      customerNo: u.businessCustomer?.customerNo ?? '',
       discountPercent: String(u.businessCustomer?.discountPercent ?? 0),
       priceListId: u.businessCustomer?.priceListId ?? '',
     })
@@ -106,6 +109,7 @@ export default function CustomersPage() {
       if (form.role === 'BUSINESS') {
         payload.companyName = form.companyName
         payload.vatNumber = form.vatNumber || null
+        payload.customerNo = form.customerNo || null
         payload.discountPercent = parseFloat(form.discountPercent) || 0
         payload.priceListId = form.priceListId || null
       }
@@ -183,7 +187,8 @@ export default function CustomersPage() {
               <tr>
                 <th className="px-5 py-3 text-left font-medium text-gray-500">User</th>
                 <th className="px-5 py-3 text-left font-medium text-gray-500">Role</th>
-                <th className="px-5 py-3 text-left font-medium text-gray-500">Company</th>
+                <th className="px-5 py-3 text-left font-medium text-gray-500">Entreprise</th>
+                <th className="px-5 py-3 text-left font-medium text-gray-500">N° Client / Statut</th>
                 <th className="px-5 py-3 text-left font-medium text-gray-500">Orders</th>
                 <th className="px-5 py-3 text-left font-medium text-gray-500">Joined</th>
                 <th className="px-5 py-3" />
@@ -202,6 +207,21 @@ export default function CustomersPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-gray-600">{u.businessCustomer?.companyName ?? '—'}</td>
+                  <td className="px-5 py-3.5">
+                    {u.businessCustomer ? (
+                      u.businessCustomer.customerNo ? (
+                        <span className="text-sm text-gray-700 font-mono">{u.businessCustomer.customerNo}</span>
+                      ) : u.businessCustomer.accountRequestType === 'new_request' ? (
+                        <span className="inline-flex text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Nouvelle demande</span>
+                      ) : u.businessCustomer.accountRequestType === 'existing_unknown' ? (
+                        <span className="inline-flex text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Compte existant</span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
+                    )}
+                  </td>
                   <td className="px-5 py-3.5 text-gray-600">{u._count.orders}</td>
                   <td className="px-5 py-3.5 text-gray-400 text-xs">
                     {new Date(u.createdAt).toLocaleDateString('en-IE', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -255,10 +275,11 @@ export default function CustomersPage() {
 
               {form.role === 'BUSINESS' && (
                 <div className="border-t pt-4 space-y-3">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Business Details</p>
-                  <FormField label="Company name *" value={form.companyName} onChange={v => setForm(f => ({ ...f, companyName: v }))} />
-                  <FormField label="VAT number" value={form.vatNumber} onChange={v => setForm(f => ({ ...f, vatNumber: v }))} />
-                  <FormField label="Discount %" type="number" value={form.discountPercent} onChange={v => setForm(f => ({ ...f, discountPercent: v }))} />
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Détails entrepreneur</p>
+                  <FormField label="Nom de l'entreprise *" value={form.companyName} onChange={v => setForm(f => ({ ...f, companyName: v }))} />
+                  <FormField label="Numéro TPS/TVQ" value={form.vatNumber} onChange={v => setForm(f => ({ ...f, vatNumber: v }))} />
+                  <FormField label="N° client DSF" value={form.customerNo} onChange={v => setForm(f => ({ ...f, customerNo: v }))} />
+                  <FormField label="Remise %" type="number" value={form.discountPercent} onChange={v => setForm(f => ({ ...f, discountPercent: v }))} />
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Price List</label>
                     <select

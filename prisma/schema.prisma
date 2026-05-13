@@ -92,17 +92,21 @@ model VerificationToken {
 // ─── Business Customers ──────────────────────────────────────────────────────
 
 model BusinessCustomer {
-  id              String      @id @default(cuid())
-  userId          String      @unique
-  companyName     String
-  vatNumber       String?
-  discountPercent Float       @default(0)
-  priceListId     String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  priceList       PriceList?  @relation(fields: [priceListId], references: [id])
-  orders          Order[]
+  id                 String      @id @default(cuid())
+  userId             String      @unique
+  companyName        String
+  vatNumber          String?
+  /// Customer number in Business Central (optional at registration)
+  customerNo         String?
+  /// When no customerNo: "new_request" | "existing_unknown" | null
+  accountRequestType String?
+  discountPercent    Float       @default(0)
+  priceListId        String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  priceList          PriceList?  @relation(fields: [priceListId], references: [id])
+  orders             Order[]
 }
 
 // ─── Pricing ─────────────────────────────────────────────────────────────────

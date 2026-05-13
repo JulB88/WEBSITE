@@ -5,13 +5,20 @@ import { prisma } from '@/lib/prisma'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { name, password, accountType, companyName, vatNumber } = body
+    const {
+      name,
+      password,
+      accountType,
+      companyName,
+      vatNumber,
+      customerNo,
+      accountRequestType,
+    } = body
     const email = typeof body.email === 'string' ? body.email.toLowerCase().trim() : ''
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: 'Name, email and password are required' }, { status: 400 })
     }
-
     if (password.length < 8) {
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
     }
@@ -22,8 +29,9 @@ export async function POST(req: NextRequest) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12)
-
     const role = accountType === 'business' ? 'BUSINESS' : 'CUSTOMER'
+
+    const isEntrepreneur = accountType === 'business' && companyName?.trim()
 
     const user = await prisma.user.create({
       data: {
@@ -31,12 +39,17 @@ export async function POST(req: NextRequest) {
         email,
         password: hashedPassword,
         role,
-        ...(accountType === 'business' && companyName
+        ...(isEntrepreneur
           ? {
               businessCustomer: {
                 create: {
-                  companyName,
-                  vatNumber: vatNumber || null,
+                  companyName: companyName.trim(),
+                  vatNumber: vatNumber?.trim() || null,
+                  customerNo: customerNo?.trim() || null,
+                  // accountRequestType only relevant when no customerNo
+                  accountRequestType: !customerNo?.trim()
+                    ? (accountRequestType ?? 'new_request')
+                    : null,
                   discountPercent: 0,
                 },
               },
