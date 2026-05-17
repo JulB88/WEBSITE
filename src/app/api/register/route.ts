@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
+import { createBCClient } from '@/lib/businesscentral'
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,9 +31,13 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await bcrypt.hash(password, 12)
     const role = accountType === 'business' ? 'BUSINESS' : 'CUSTOMER'
-
     const isEntrepreneur = accountType === 'business' && companyName?.trim()
 
+    // If the user supplied their existing BC customer number, verify it
+    let resolvedCustomerNo: string | null = customerNo?.trim() || null
+    const isNewRequest = !resolvedCustomerNo && accountRequestType !== 'existing_unknown'
+
+    // Create the user record
     const user = await prisma.user.create({
       data: {
         name,
@@ -45,9 +50,8 @@ export async function POST(req: NextRequest) {
                 create: {
                   companyName: companyName.trim(),
                   vatNumber: vatNumber?.trim() || null,
-                  customerNo: customerNo?.trim() || null,
-                  // accountRequestType only relevant when no customerNo
-                  accountRequestType: !customerNo?.trim()
+                  customerNo: resolvedCustomerNo,
+                  accountRequestType: !resolvedCustomerNo
                     ? (accountRequestType ?? 'new_request')
                     : null,
                   discountPercent: 0,
@@ -56,7 +60,18 @@ export async function POST(req: NextRequest) {
             }
           : {}),
       },
+      include: { businessCustomer: true },
     })
+
+    // Auto-create BC customer for new business accounts that don't have a BC customer number yet
+    if (isEntrepreneur && isNewRequest && user.businessCustomer) {
+      syncNewCustomerToBC({
+        businessCustomerId: user.businessCustomer.id,
+        companyName: companyName.trim(),
+        email,
+        vatNumber: vatNumber?.trim() || null,
+      }).catch((err) => console.error('[register] BC customer sync failed (non-fatal):', err))
+    }
 
     return NextResponse.json(
       { message: 'Account created successfully', userId: user.id },
@@ -65,5 +80,43 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[register]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+async function syncNewCustomerToBC(data: {
+  businessCustomerId: string
+  companyName: string
+  email: string
+  vatNumber: string | null
+}) {
+  try {
+    const bc = await createBCClient()
+
+    // Check if a BC customer with this email already exists
+    const existing = await bc.findCustomerByEmail(data.email)
+    if (existing) {
+      await prisma.businessCustomer.update({
+        where: { id: data.businessCustomerId },
+        data: { customerNo: existing.number },
+      })
+      return
+    }
+
+    // Create new BC customer
+    const created = await bc.createCustomer({
+      displayName: data.companyName,
+      email: data.email,
+      taxRegistrationNumber: data.vatNumber ?? undefined,
+    })
+
+    await prisma.businessCustomer.update({
+      where: { id: data.businessCustomerId },
+      data: { customerNo: created.number },
+    })
+
+    console.log(`[register] BC customer ${created.number} created for ${data.email}`)
+  } catch (err) {
+    console.error('[register] syncNewCustomerToBC error:', err)
+    throw err
   }
 }

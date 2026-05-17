@@ -6,6 +6,7 @@ interface BusinessCustomer {
   id: string
   companyName: string
   vatNumber: string | null
+  customerNo: string | null
   discountPercent: number
   priceListId: string | null
   priceList: { name: string } | null
@@ -151,6 +152,11 @@ export default function AdminCustomersPage() {
                         {user.businessCustomer?.vatNumber && (
                           <div className="text-xs text-gray-400">{user.businessCustomer.vatNumber}</div>
                         )}
+                        {user.businessCustomer?.customerNo ? (
+                          <div className="text-xs text-blue-600 font-mono mt-0.5">BC: {user.businessCustomer.customerNo}</div>
+                        ) : user.businessCustomer ? (
+                          <div className="text-xs text-amber-500 mt-0.5">No BC customer #</div>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {isEditingThisUser ? (

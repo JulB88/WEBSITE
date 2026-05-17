@@ -10,7 +10,7 @@ async function getSetting(key: string, envFallback: string) {
 
 export async function POST() {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'ADMIN') {
+  if (!session || !['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

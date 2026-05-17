@@ -21,6 +21,39 @@ interface Settings {
 
 type TestStatus = 'idle' | 'loading' | 'ok' | 'error'
 
+function SyncButton({
+  url, label, successMsg, successKey,
+}: {
+  url: string
+  label: string
+  successMsg: (data: any) => string
+  successKey?: string
+}) {
+  const [loading, setLoading] = useState(false)
+  return (
+    <button
+      disabled={loading}
+      onClick={async () => {
+        setLoading(true)
+        try {
+          const res = await fetch(url, { method: 'POST' })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Failed')
+          alert(successMsg(data))
+        } catch (e: any) {
+          alert(`Error: ${e.message}`)
+        } finally {
+          setLoading(false)
+        }
+      }}
+      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+    >
+      {loading && <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+      {label}
+    </button>
+  )
+}
+
 function Field({
   label, name, value, onChange, type = 'text', placeholder = '', hint = '',
 }: {
@@ -305,21 +338,28 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="mt-5 pt-5 border-t border-gray-100 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-700">Sync Products from BC</p>
-              <p className="text-xs text-gray-500 mt-0.5">Pull your item catalogue from Business Central into the store</p>
+          <div className="mt-5 pt-5 border-t border-gray-100 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Sync Products from BC</p>
+                <p className="text-xs text-gray-500 mt-0.5">Pull your item catalogue from Business Central into the store</p>
+              </div>
+              <SyncButton url="/api/admin/sync-bc" label="Sync Products" successKey="count" successMsg={(d) => `✓ Synced ${d.count} products`} />
             </div>
-            <button
-              onClick={async () => {
-                const res = await fetch('/api/admin/sync-bc', { method: 'POST' })
-                const data = await res.json()
-                alert(data.count != null ? `✓ Synced ${data.count} products` : data.error || 'Sync failed')
-              }}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-            >
-              Sync Now
-            </button>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Sync Customers to BC</p>
+                <p className="text-xs text-gray-500 mt-0.5">Create business customers in BC who don't have a customer number yet</p>
+              </div>
+              <SyncButton url="/api/admin/sync-customers" label="Sync Customers" successMsg={(d) => `✓ ${d.synced} synced, ${d.errors} errors`} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Sync Order Statuses from BC</p>
+                <p className="text-xs text-gray-500 mt-0.5">Update order statuses and retry unsynced orders</p>
+              </div>
+              <SyncButton url="/api/admin/sync-orders" label="Sync Orders" successMsg={(d) => `✓ ${d.updated} updated, ${d.retried} pushed`} />
+            </div>
           </div>
         </section>
 

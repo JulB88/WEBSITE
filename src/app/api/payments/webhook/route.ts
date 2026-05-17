@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStripe, getWebhookSecret } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
-import { createBCClient } from '@/lib/businesscentral'
+import { createBCClient, resolveOrCreateBCCustomer } from '@/lib/businesscentral'
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
@@ -26,7 +26,6 @@ export async function POST(req: NextRequest) {
     const intent = event.data.object
 
     try {
-      // Find the order created by the client-side POST /api/orders
       const order = await prisma.order.findUnique({
         where: { stripePaymentIntentId: intent.id },
         include: {
@@ -37,13 +36,10 @@ export async function POST(req: NextRequest) {
       })
 
       if (!order) {
-        // Race condition: webhook arrived before client posted to /api/orders.
-        // Log it — the order will be created by the client and status set correctly there.
-        console.warn(`[webhook] payment_intent.succeeded: no order found for PI ${intent.id}. Will be handled by client.`)
+        console.warn(`[webhook] payment_intent.succeeded: no order for PI ${intent.id}`)
         return NextResponse.json({ received: true })
       }
 
-      // Only update if still in PENDING (avoid overwriting PROCESSING set by client)
       if (order.status === 'PENDING') {
         await prisma.order.update({
           where: { id: order.id },
@@ -51,27 +47,11 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // Push to Business Central (non-blocking — don't fail the webhook)
-      if (order.orderItems.length > 0) {
-        try {
-          const bc = await createBCClient()
-          const bcOrder = await bc.createSalesOrder({
-            orderDate: new Date().toISOString().split('T')[0],
-            salesLines: order.orderItems.map((oi) => ({
-              itemNumber: oi.product.bcItemNo,
-              description: oi.product.name,
-              quantity: oi.quantity,
-              unitPrice: oi.unitPrice,
-            })),
-          })
-
-          await prisma.order.update({
-            where: { id: order.id },
-            data: { bcSalesOrderNo: bcOrder.number || bcOrder.id },
-          })
-        } catch (bcErr) {
-          console.error('[webhook] BC sync failed (non-fatal):', bcErr)
-        }
+      // Push to BC — non-blocking
+      if (order.orderItems.length > 0 && !order.bcSalesOrderNo) {
+        pushOrderToBC(order).catch((err) =>
+          console.error('[webhook] BC push failed (non-fatal):', err)
+        )
       }
     } catch (dbErr) {
       console.error('[webhook] DB error on payment_intent.succeeded:', dbErr)
@@ -93,4 +73,40 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true })
+}
+
+async function pushOrderToBC(order: {
+  id: string
+  userId: string
+  businessCustomerId: string | null
+  orderItems: { product: { bcItemNo: string | null; name: string }; quantity: number; unitPrice: number }[]
+}) {
+  const bc = await createBCClient()
+
+  const customerNumber = await resolveOrCreateBCCustomer(
+    bc,
+    order.userId,
+    order.businessCustomerId
+  )
+
+  const bcOrder = await bc.createSalesOrder({
+    customerNumber,
+    orderDate: new Date().toISOString().split('T')[0],
+    externalDocumentNumber: order.id.slice(0, 35), // BC limit: 35 chars
+    salesLines: order.orderItems
+      .filter((oi) => oi.product.bcItemNo)
+      .map((oi) => ({
+        itemNumber: oi.product.bcItemNo!,
+        description: oi.product.name,
+        quantity: oi.quantity,
+        unitPrice: oi.unitPrice,
+      })),
+  })
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { bcSalesOrderNo: bcOrder.number },
+  })
+
+  console.log(`[webhook] BC sales order ${bcOrder.number} created for order ${order.id}`)
 }
