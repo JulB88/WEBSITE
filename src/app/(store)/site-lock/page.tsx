@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, FormEvent } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
 function SiteLockForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -24,8 +23,7 @@ function SiteLockForm() {
 
     if (res.ok) {
       const from = searchParams.get('from') || '/'
-      router.push(from)
-      router.refresh()
+      window.location.href = from
     } else {
       setError('Mot de passe incorrect.')
       setLoading(false)
