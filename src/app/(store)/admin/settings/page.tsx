@@ -363,11 +363,146 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* ── Microsoft Authenticator (TOTP) ── */}
+        <TotpSection />
+
       </div>
 
       <p className="text-xs text-gray-400 mt-6 text-center">
         Settings are saved to the database. Secret keys are masked on screen. For production, ensure your database itself is encrypted at the infrastructure level.
       </p>
     </div>
+  )
+}
+
+function TotpSection() {
+  const [status, setStatus]     = useState<'idle' | 'loading' | 'qr' | 'confirming' | 'done'>('idle')
+  const [qrDataUrl, setQrDataUrl] = useState('')
+  const [secret, setSecret]     = useState('')
+  const [configured, setConfigured] = useState<boolean | null>(null)
+  const [confirmCode, setConfirmCode] = useState('')
+  const [confirmError, setConfirmError] = useState('')
+
+  useEffect(() => {
+    fetch('/api/admin/totp-setup')
+      .then(r => r.json())
+      .then(d => setConfigured(d.configured ?? false))
+  }, [])
+
+  async function generate() {
+    setStatus('loading')
+    const res  = await fetch('/api/admin/totp-setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'generate' }),
+    })
+    const data = await res.json()
+    setQrDataUrl(data.qrDataUrl)
+    setSecret(data.secret)
+    setStatus('qr')
+  }
+
+  async function confirm() {
+    setStatus('confirming')
+    setConfirmError('')
+    const res  = await fetch('/api/admin/totp-setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'confirm', secret, code: confirmCode }),
+    })
+    const data = await res.json()
+    if (data.ok) {
+      setConfigured(true)
+      setStatus('done')
+    } else {
+      setConfirmError(data.error || 'Code incorrect')
+      setStatus('qr')
+    }
+  }
+
+  return (
+    <section className="bg-white border border-gray-200 rounded-xl p-6">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-9 h-9 bg-green-50 rounded-lg flex items-center justify-center text-lg">🔐</div>
+        <div>
+          <h2 className="font-semibold text-gray-900">Microsoft Authenticator (TOTP)</h2>
+          <p className="text-xs text-gray-500">Code à 6 chiffres pour déverrouiller le site</p>
+        </div>
+        {configured !== null && (
+          <span className={`ml-auto text-xs font-medium px-2.5 py-1 rounded-full ${configured ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+            {configured ? '✓ Configuré' : 'Non configuré'}
+          </span>
+        )}
+      </div>
+
+      {status === 'idle' && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-600">
+            {configured
+              ? 'Un secret TOTP est déjà enregistré. Tu peux en générer un nouveau si nécessaire.'
+              : 'Génère un QR code à scanner une fois dans Microsoft Authenticator.'}
+          </p>
+          <button
+            onClick={generate}
+            className="ml-4 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 whitespace-nowrap"
+          >
+            {configured ? 'Regénérer' : 'Configurer'}
+          </button>
+        </div>
+      )}
+
+      {status === 'loading' && (
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+          Génération du QR code…
+        </div>
+      )}
+
+      {(status === 'qr' || status === 'confirming') && (
+        <div className="space-y-4">
+          <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center gap-3">
+            {qrDataUrl && <img src={qrDataUrl} alt="QR TOTP" className="w-48 h-48 rounded-lg" />}
+            <p className="text-xs text-gray-500 text-center">
+              Scanne ce QR code dans <strong>Microsoft Authenticator</strong><br />
+              (+ → Autre compte → Scanner le code)
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Confirme avec le code affiché dans l'appli
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={confirmCode}
+                onChange={(e) => setConfirmCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="123456"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono w-32 focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <button
+                onClick={confirm}
+                disabled={confirmCode.length < 6 || status === 'confirming'}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                {status === 'confirming' ? 'Vérification…' : 'Valider'}
+              </button>
+              <button onClick={() => setStatus('idle')} className="text-sm text-gray-400 hover:text-gray-600 px-2">
+                Annuler
+              </button>
+            </div>
+            {confirmError && <p className="text-xs text-red-500 mt-1">{confirmError}</p>}
+          </div>
+        </div>
+      )}
+
+      {status === 'done' && (
+        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+          <span className="text-lg">✓</span>
+          Microsoft Authenticator configuré avec succès ! Le site utilise maintenant les codes TOTP.
+        </div>
+      )}
+    </section>
   )
 }
