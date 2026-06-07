@@ -186,6 +186,9 @@ export default function SettingsPage() {
 
       <div className="space-y-6">
 
+        {/* ── Microsoft Authenticator (TOTP) ── en premier pour visibilité ── */}
+        <TotpSection />
+
         {/* ── General ── */}
         <section className="bg-white border border-gray-200 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-5">
@@ -363,8 +366,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* ── Microsoft Authenticator (TOTP) ── */}
-        <TotpSection />
 
       </div>
 
