@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useSession } from 'next-auth/react'
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Settings {
   stripe_publishable_key?: string
@@ -19,55 +22,84 @@ interface Settings {
 }
 
 type TestStatus = 'idle' | 'loading' | 'ok' | 'error'
+type TotpSetupStatus = 'idle' | 'loading' | 'qr' | 'confirming' | 'done'
 
-function Field({ label, name, value, onChange, type = 'text', placeholder = '', hint = '' }: {
-  label: string; name: string; value: string; onChange: (n: string, v: string) => void
-  type?: string; placeholder?: string; hint?: string
+// ─── Rôle helpers ────────────────────────────────────────────────────────────
+
+function useRole() {
+  const { data: session } = useSession()
+  const role = session?.user?.role ?? ''
+  return {
+    role,
+    canEditCredentials: ['SUPER_ADMIN', 'ADMIN'].includes(role),
+    canSync:            ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role),
+    canEditSiteLock:    ['SUPER_ADMIN', 'ADMIN'].includes(role),
+    canEditTOTP:        ['SUPER_ADMIN', 'ADMIN'].includes(role),
+  }
+}
+
+// ─── Composants réutilisables ─────────────────────────────────────────────────
+
+function SectionCard({ icon, title, subtitle, children, className = '' }: {
+  icon: string; title: string; subtitle?: string; children: React.ReactNode; className?: string
 }) {
+  return (
+    <section className={`bg-white rounded-xl border border-gray-200 p-6 ${className}`}>
+      <div className="flex items-center gap-3 mb-5">
+        <span className="text-xl">{icon}</span>
+        <div>
+          <h2 className="font-semibold text-gray-900">{title}</h2>
+          {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function Field({ label, name, value, onChange, type = 'text', placeholder = '', hint = '', readOnly = false }: {
+  label: string; name: string; value: string; onChange?: (n: string, v: string) => void
+  type?: string; placeholder?: string; hint?: string; readOnly?: boolean
+}) {
+  const [show, setShow] = useState(false)
+  const isSecret = type === 'password'
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(name, e.target.value)}
-        placeholder={placeholder}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-      />
+      <div className="relative">
+        <input
+          type={isSecret && !show ? 'password' : 'text'}
+          value={value}
+          readOnly={readOnly}
+          onChange={e => onChange?.(name, e.target.value)}
+          placeholder={placeholder}
+          className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500
+            ${readOnly ? 'bg-gray-50 text-gray-500 border-gray-100 cursor-not-allowed' : 'border-gray-200'}
+            ${isSecret ? 'font-mono pr-16' : ''}`}
+        />
+        {isSecret && !readOnly && (
+          <button type="button" onClick={() => setShow(s => !s)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600">
+            {show ? 'Masquer' : 'Afficher'}
+          </button>
+        )}
+      </div>
       {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
     </div>
   )
 }
 
-function StatusBadge({ status, okMsg, errMsg }: { status: TestStatus; okMsg: string; errMsg: string }) {
-  if (status === 'idle') return null
-  if (status === 'loading') return <span className="text-xs text-gray-500 animate-pulse">Testing…</span>
-  if (status === 'ok') return <span className="text-xs text-green-600 font-medium">✓ {okMsg}</span>
-  return <span className="text-xs text-red-600 font-medium">✗ {errMsg}</span>
-}
-
 function Toggle({ enabled, onChange, label, description }: {
-  enabled: boolean
-  onChange: (v: boolean) => void
-  label: string
-  description: string
+  enabled: boolean; onChange: (v: boolean) => void; label: string; description: string
 }) {
   return (
     <div className="flex items-start gap-4">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        onClick={() => onChange(!enabled)}
-        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent
-          transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
-          ${enabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
-      >
-        <span
-          aria-hidden="true"
-          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0
-            transition duration-200 ease-in-out ${enabled ? 'translate-x-5' : 'translate-x-0'}`}
-        />
+      <button type="button" role="switch" aria-checked={enabled} onClick={() => onChange(!enabled)}
+        className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent
+          transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
+          ${enabled ? 'bg-indigo-600' : 'bg-gray-200'}`}>
+        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow
+          transition duration-200 ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
       </button>
       <div>
         <p className="text-sm font-medium text-gray-900">{label}</p>
@@ -77,62 +109,159 @@ function Toggle({ enabled, onChange, label, description }: {
   )
 }
 
-function PasswordRevealField({ label, value, onChange, hint = '' }: {
-  label: string; value: string; onChange: (v: string) => void; hint?: string
+function StatusBadge({ status, okMsg, errMsg }: { status: TestStatus; okMsg: string; errMsg: string }) {
+  if (status === 'idle') return null
+  if (status === 'loading') return <span className="text-xs text-gray-500 animate-pulse">Test en cours…</span>
+  if (status === 'ok')    return <span className="text-xs text-green-600 font-medium">✓ {okMsg}</span>
+  return <span className="text-xs text-red-600 font-medium">✗ {errMsg}</span>
+}
+
+function SyncBtn({ url, label, onResult }: {
+  url: string; label: string; onResult: (msg: string) => void
 }) {
-  const [show, setShow] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [loading, setLoading] = useState(false)
+  async function run() {
+    setLoading(true)
+    try {
+      const res = await fetch(url, { method: 'POST' })
+      const d   = await res.json()
+      onResult(res.ok ? `✓ ${d.message ?? label + ' terminé'}` : `✗ ${d.error ?? 'Erreur'}`)
+    } catch { onResult('✗ Erreur réseau') }
+    finally  { setLoading(false) }
+  }
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <div className="relative">
-        <input
-          ref={inputRef}
-          type={show ? 'text' : 'password'}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-          autoComplete="new-password"
-        />
-        <button
-          type="button"
-          onClick={() => setShow(s => !s)}
-          className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600"
-          aria-label={show ? 'Masquer' : 'Afficher'}
-        >
-          {show ? (
-            /* eye-off */
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88L6.59 6.59m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-            </svg>
-          ) : (
-            /* eye */
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          )}
-        </button>
-      </div>
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
-    </div>
+    <button onClick={run} disabled={loading}
+      className="text-xs bg-gray-800 text-white rounded-lg px-3 py-1.5 hover:bg-gray-700 disabled:opacity-50 flex items-center gap-1.5">
+      {loading && <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+      {loading ? 'En cours…' : label}
+    </button>
   )
 }
 
-export default function DashboardSettingsPage() {
+// ─── Section TOTP ─────────────────────────────────────────────────────────────
+
+function TotpSection() {
+  const [setupStatus, setSetupStatus] = useState<TotpSetupStatus>('idle')
+  const [configured, setConfigured]   = useState<boolean | null>(null)
+  const [qrDataUrl, setQrDataUrl]     = useState('')
+  const [secret, setSecret]           = useState('')
+  const [confirmCode, setConfirmCode] = useState('')
+  const [confirmError, setConfirmError] = useState('')
+
+  useEffect(() => {
+    fetch('/api/admin/totp-setup')
+      .then(r => r.json())
+      .then(d => setConfigured(d.configured ?? false))
+  }, [])
+
+  async function generate() {
+    setSetupStatus('loading')
+    const d = await fetch('/api/admin/totp-setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'generate' }),
+    }).then(r => r.json())
+    setQrDataUrl(d.qrDataUrl); setSecret(d.secret); setSetupStatus('qr')
+  }
+
+  async function confirm() {
+    setSetupStatus('confirming'); setConfirmError('')
+    const d = await fetch('/api/admin/totp-setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'confirm', secret, code: confirmCode }),
+    }).then(r => r.json())
+    if (d.ok) { setConfigured(true); setSetupStatus('done') }
+    else       { setConfirmError(d.error || 'Code incorrect'); setSetupStatus('qr') }
+  }
+
+  return (
+    <SectionCard icon="🔐" title="Microsoft Authenticator (TOTP)"
+      subtitle="Code à 6 chiffres pour déverrouiller le site">
+      <div className="flex items-center justify-between mb-4">
+        {configured !== null && (
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+            configured ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+          }`}>
+            {configured ? '✓ Configuré' : 'Non configuré'}
+          </span>
+        )}
+      </div>
+
+      {setupStatus === 'idle' && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-600">
+            {configured
+              ? 'Un secret TOTP est enregistré. Regénère si nécessaire.'
+              : 'Génère un QR code à scanner une fois dans Microsoft Authenticator.'}
+          </p>
+          <button onClick={generate}
+            className="ml-4 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700">
+            {configured ? 'Regénérer' : 'Configurer'}
+          </button>
+        </div>
+      )}
+
+      {setupStatus === 'loading' && (
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+          Génération…
+        </div>
+      )}
+
+      {(setupStatus === 'qr' || setupStatus === 'confirming') && (
+        <div className="space-y-4">
+          <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center gap-3">
+            {qrDataUrl && <img src={qrDataUrl} alt="QR TOTP" className="w-48 h-48 rounded-lg" />}
+            <p className="text-xs text-gray-500 text-center">
+              Scanne dans <strong>Microsoft Authenticator</strong> → + → Autre compte
+            </p>
+          </div>
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Code de confirmation
+              </label>
+              <input type="text" inputMode="numeric" maxLength={6}
+                value={confirmCode} onChange={e => setConfirmCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="123456"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono w-32 focus:outline-none focus:ring-2 focus:ring-green-500" />
+            </div>
+            <button onClick={confirm}
+              disabled={confirmCode.length < 6 || setupStatus === 'confirming'}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
+              Valider
+            </button>
+            <button onClick={() => setSetupStatus('idle')} className="text-sm text-gray-400 hover:text-gray-600 px-2">
+              Annuler
+            </button>
+          </div>
+          {confirmError && <p className="text-xs text-red-500">{confirmError}</p>}
+        </div>
+      )}
+
+      {setupStatus === 'done' && (
+        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+          ✓ Microsoft Authenticator configuré — le site utilise maintenant les codes TOTP.
+        </div>
+      )}
+    </SectionCard>
+  )
+}
+
+// ─── Page principale ──────────────────────────────────────────────────────────
+
+export default function SettingsPage() {
+  const { canEditCredentials, canSync, canEditSiteLock, canEditTOTP, role } = useRole()
   const [settings, setSettings] = useState<Settings>({})
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saveMsg, setSaveMsg] = useState('')
+  const [loading, setLoading]   = useState(true)
+  const [saving, setSaving]     = useState(false)
+  const [saveMsg, setSaveMsg]   = useState('')
   const [stripeStatus, setStripeStatus] = useState<TestStatus>('idle')
   const [stripeDetail, setStripeDetail] = useState('')
   const [bcStatus, setBcStatus] = useState<TestStatus>('idle')
   const [bcDetail, setBcDetail] = useState('')
-  const [syncing, setSyncing] = useState(false)
-  const [syncResult, setSyncResult] = useState('')
+  const [syncMsg, setSyncMsg]   = useState('')
 
   useEffect(() => {
     fetch('/api/admin/settings')
@@ -144,13 +273,8 @@ export default function DashboardSettingsPage() {
     setSettings(s => ({ ...s, [name]: value }))
   }
 
-  function handleToggle(name: string, value: boolean) {
-    setSettings(s => ({ ...s, [name]: value ? 'true' : 'false' }))
-  }
-
   async function handleSave() {
-    setSaving(true)
-    setSaveMsg('')
+    setSaving(true); setSaveMsg('')
     try {
       const res = await fetch('/api/admin/settings', {
         method: 'POST',
@@ -158,46 +282,31 @@ export default function DashboardSettingsPage() {
         body: JSON.stringify({ settings }),
       })
       setSaveMsg(res.ok ? '✓ Sauvegardé' : '✗ Erreur de sauvegarde')
-    } catch {
-      setSaveMsg('✗ Erreur réseau')
-    } finally {
+    } catch { setSaveMsg('✗ Erreur réseau') }
+    finally {
       setSaving(false)
       setTimeout(() => setSaveMsg(''), 3000)
     }
   }
 
   async function testStripe() {
-    setStripeStatus('loading')
-    setStripeDetail('')
+    setStripeStatus('loading'); setStripeDetail('')
     try {
       const res = await fetch('/api/admin/settings/test-stripe', { method: 'POST' })
-      const d = await res.json()
-      if (res.ok) { setStripeStatus('ok'); setStripeDetail(d.mode === 'live' ? 'Live mode' : 'Test mode') }
-      else { setStripeStatus('error'); setStripeDetail(d.error ?? '') }
+      const d   = await res.json()
+      setStripeStatus(res.ok ? 'ok' : 'error')
+      setStripeDetail(d.mode === 'live' ? 'Live mode' : d.error ?? (res.ok ? 'Test mode' : 'Échec'))
     } catch { setStripeStatus('error') }
   }
 
   async function testBC() {
-    setBcStatus('loading')
-    setBcDetail('')
+    setBcStatus('loading'); setBcDetail('')
     try {
       const res = await fetch('/api/admin/settings/test-bc', { method: 'POST' })
-      const d = await res.json()
-      if (res.ok) { setBcStatus('ok'); setBcDetail(d.company ? `Company: ${d.company}` : 'Connected') }
-      else { setBcStatus('error'); setBcDetail(d.error ?? '') }
+      const d   = await res.json()
+      setBcStatus(d.ok ? 'ok' : 'error')
+      setBcDetail(d.message ?? (d.ok ? 'Connecté' : 'Échec'))
     } catch { setBcStatus('error') }
-  }
-
-  async function syncBC() {
-    setSyncing(true)
-    setSyncResult('')
-    try {
-      const res = await fetch('/api/admin/sync-bc', { method: 'POST' })
-      const d = await res.json()
-      setSyncResult(res.ok ? `✓ Synced ${d.count ?? 0} products` : `✗ ${d.error ?? 'Failed'}`)
-    } finally {
-      setSyncing(false)
-    }
   }
 
   if (loading) return <div className="p-8 text-gray-400">Chargement…</div>
@@ -206,152 +315,163 @@ export default function DashboardSettingsPage() {
 
   return (
     <div className="p-8 max-w-3xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-500 text-sm mt-0.5">Configure integrations and store preferences</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
+          <p className="text-gray-500 text-sm mt-0.5">
+            {canEditCredentials ? 'Gestion des intégrations et préférences du site' : 'Outils de synchronisation'}
+          </p>
+        </div>
+        {canEditCredentials && (
+          <div className="flex items-center gap-3">
+            {saveMsg && <span className={`text-sm font-medium ${saveMsg.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>{saveMsg}</span>}
+            <button onClick={handleSave} disabled={saving}
+              className="bg-indigo-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+              {saving ? 'Sauvegarde…' : 'Sauvegarder'}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="space-y-6">
 
-        {/* ── Site Access ─────────────────────────────────────────────────── */}
-        <section className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-base font-semibold text-gray-900">Accès au site</h2>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-              siteLockEnabled
-                ? 'bg-amber-100 text-amber-700'
-                : 'bg-green-100 text-green-700'
-            }`}>
-              {siteLockEnabled ? 'Protégé' : 'Public'}
-            </span>
-          </div>
-          <p className="text-sm text-gray-500 mb-5">
-            Contrôle si le site est accessible au public ou protégé par un mot de passe.
-          </p>
-          <Toggle
-            enabled={siteLockEnabled}
-            onChange={(v) => handleToggle('site_lock_enabled', v)}
-            label="Protection par mot de passe activée"
-            description={
-              siteLockEnabled
+        {/* ── TOTP — ADMIN+ seulement ── */}
+        {canEditTOTP && <TotpSection />}
+
+        {/* ── Accès au site — ADMIN+ ── */}
+        {canEditSiteLock && (
+          <SectionCard icon="🔒" title="Accès au site"
+            subtitle="Contrôle si le site est protégé par mot de passe ou public">
+            <div className="flex items-center gap-2 mb-4">
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                siteLockEnabled ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+              }`}>
+                {siteLockEnabled ? 'Protégé' : 'Public'}
+              </span>
+            </div>
+            <Toggle
+              enabled={siteLockEnabled}
+              onChange={v => handleChange('site_lock_enabled', v ? 'true' : 'false')}
+              label="Protection par mot de passe"
+              description={siteLockEnabled
                 ? 'Les visiteurs doivent entrer le mot de passe pour accéder au site.'
-                : 'Le site est public — tout le monde peut y accéder sans mot de passe.'
-            }
-          />
-          {!siteLockEnabled && (
-            <div className="mt-4 flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg p-3">
-              <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-xs text-green-700">
-                Le site sera accessible sans mot de passe. Assurez-vous que le contenu est prêt à être publié.
-              </p>
-            </div>
-          )}
-          {siteLockEnabled && (
-            <div className="mt-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <svg className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <p className="text-xs text-amber-700">
-                Les visiteurs seront redirigés vers la page de connexion. Seuls ceux avec le mot de passe peuvent voir le site.
-              </p>
-            </div>
-          )}
-
-          {/* Password field — always visible so admin can see/change it */}
-          <div className="mt-5 pt-5 border-t border-gray-100">
-            <PasswordRevealField
-              label="Mot de passe d'accès"
-              value={settings.site_password ?? ''}
-              onChange={(v) => handleChange('site_password', v)}
-              hint="Cliquez sur l'œil pour afficher le mot de passe actuel. Modifiez-le et sauvegardez pour le changer."
+                : 'Le site est public — tout le monde peut y accéder.'}
             />
-          </div>
-        </section>
-
-        {/* ── General ─────────────────────────────────────────────────────── */}
-        <section className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">General</h2>
-          <div className="space-y-4">
-            <Field label="Store Name" name="store_name" value={settings.store_name ?? ''} onChange={handleChange} placeholder="DSF" />
-            <Field label="Store Email" name="store_email" value={settings.store_email ?? ''} onChange={handleChange} type="email" placeholder="orders@yourstore.com" />
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-              <select
-                value={settings.store_currency ?? 'EUR'}
-                onChange={(e) => handleChange('store_currency', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="EUR">EUR — Euro (€)</option>
-                <option value="GBP">GBP — British Pound (£)</option>
-                <option value="USD">USD — US Dollar ($)</option>
-                <option value="CAD">CAD — Dollar canadien ($)</option>
-              </select>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <Field label="Mot de passe d'accès (fallback)"
+                name="site_password" type="password"
+                value={settings.site_password ?? ''}
+                onChange={handleChange}
+                hint="Utilisé si le TOTP n'est pas configuré. Modifiez et sauvegardez pour le changer." />
             </div>
-          </div>
-        </section>
+          </SectionCard>
+        )}
 
-        {/* ── Stripe ──────────────────────────────────────────────────────── */}
-        <section className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-gray-900">Stripe Payments</h2>
-            <div className="flex items-center gap-3">
-              <StatusBadge status={stripeStatus} okMsg={stripeDetail || 'Connected'} errMsg={stripeDetail || 'Connection failed'} />
+        {/* ── Général — ADMIN+ ── */}
+        {canEditCredentials && (
+          <SectionCard icon="🏪" title="Général" subtitle="Informations de base du magasin">
+            <div className="space-y-4">
+              <Field label="Nom du magasin" name="store_name" value={settings.store_name ?? ''} onChange={handleChange} placeholder="DSF" />
+              <Field label="Email de contact" name="store_email" type="email" value={settings.store_email ?? ''} onChange={handleChange} placeholder="commandes@votremagasin.com" />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Devise</label>
+                <select value={settings.store_currency ?? 'CAD'}
+                  onChange={e => handleChange('store_currency', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="CAD">CAD — Dollar canadien ($)</option>
+                  <option value="EUR">EUR — Euro (€)</option>
+                  <option value="USD">USD — Dollar américain ($)</option>
+                  <option value="GBP">GBP — Livre sterling (£)</option>
+                </select>
+              </div>
+            </div>
+          </SectionCard>
+        )}
+
+        {/* ── Stripe — ADMIN+ ── */}
+        {canEditCredentials && (
+          <SectionCard icon="💳" title="Stripe Payments" subtitle="Paiements par carte de crédit">
+            <div className="flex items-center gap-3 mb-4">
+              <StatusBadge status={stripeStatus} okMsg={stripeDetail || 'Connecté'} errMsg={stripeDetail || 'Connexion échouée'} />
               <button onClick={testStripe} disabled={stripeStatus === 'loading'}
                 className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-                Test connection
+                Tester la connexion
               </button>
             </div>
-          </div>
-          <div className="space-y-4">
-            <Field label="Publishable Key" name="stripe_publishable_key" value={settings.stripe_publishable_key ?? ''} onChange={handleChange} placeholder="pk_live_…" />
-            <Field label="Secret Key" name="stripe_secret_key" value={settings.stripe_secret_key ?? ''} onChange={handleChange} type="password" placeholder="sk_live_…" />
-            <Field label="Webhook Secret" name="stripe_webhook_secret" value={settings.stripe_webhook_secret ?? ''} onChange={handleChange} type="password" placeholder="whsec_…"
-              hint="From your Stripe webhook endpoint settings" />
-          </div>
-        </section>
+            <div className="space-y-4">
+              <Field label="Clé publiable" name="stripe_publishable_key" value={settings.stripe_publishable_key ?? ''} onChange={handleChange} placeholder="pk_live_…" />
+              <Field label="Clé secrète" name="stripe_secret_key" type="password" value={settings.stripe_secret_key ?? ''} onChange={handleChange} placeholder="sk_live_…" />
+              <Field label="Secret webhook" name="stripe_webhook_secret" type="password" value={settings.stripe_webhook_secret ?? ''} onChange={handleChange} placeholder="whsec_…" hint="Depuis vos paramètres de webhook Stripe" />
+            </div>
+          </SectionCard>
+        )}
 
-        {/* ── Business Central ─────────────────────────────────────────────── */}
-        <section className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-gray-900">Business Central</h2>
-            <div className="flex items-center gap-3">
-              <StatusBadge status={bcStatus} okMsg={bcDetail || 'Connected'} errMsg={bcDetail || 'Connection failed'} />
-              <button onClick={testBC} disabled={bcStatus === 'loading'}
-                className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-                Test connection
-              </button>
-              <button onClick={syncBC} disabled={syncing}
-                className="text-xs bg-gray-800 text-white rounded-lg px-3 py-1.5 hover:bg-gray-700 disabled:opacity-50">
-                {syncing ? 'Syncing…' : '↻ Sync Now'}
-              </button>
+        {/* ── Business Central — crédentiels ADMIN+ / synchro MANAGER+ ── */}
+        <SectionCard icon="🔷" title="Business Central" subtitle="Synchronisation produits, commandes et clients">
+          {canEditCredentials && (
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                <StatusBadge status={bcStatus} okMsg={bcDetail || 'Connecté'} errMsg={bcDetail || 'Connexion échouée'} />
+                <button onClick={testBC} disabled={bcStatus === 'loading'}
+                  className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+                  Tester la connexion
+                </button>
+              </div>
+              <div className="space-y-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Tenant ID" name="bc_tenant_id" value={settings.bc_tenant_id ?? ''} onChange={handleChange} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                  <Field label="Client ID" name="bc_client_id" value={settings.bc_client_id ?? ''} onChange={handleChange} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <Field label="Client Secret" name="bc_client_secret" type="password" value={settings.bc_client_secret ?? ''} onChange={handleChange} placeholder="Secret de l'app registration Azure" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Environnement</label>
+                    <select value={settings.bc_environment ?? 'sandbox'}
+                      onChange={e => handleChange('bc_environment', e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                      <option value="sandbox">Sandbox</option>
+                      <option value="production">Production</option>
+                    </select>
+                  </div>
+                  <Field label="Company ID" name="bc_company_id" value={settings.bc_company_id ?? ''} onChange={handleChange} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+              </div>
+              <div className="border-t border-gray-100 pt-4" />
+            </>
+          )}
+
+          {/* Boutons de synchro — tous les rôles canSync */}
+          {canSync && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700">Synchronisation</p>
+              {syncMsg && (
+                <p className={`text-xs px-3 py-2 rounded-lg border ${
+                  syncMsg.startsWith('✓') ? 'text-green-700 bg-green-50 border-green-200' : 'text-red-700 bg-red-50 border-red-200'
+                }`}>{syncMsg}</p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <SyncBtn url="/api/admin/sync-bc" label="↻ Sync produits" onResult={setSyncMsg} />
+                <SyncBtn url="/api/admin/sync-customers" label="↻ Sync clients" onResult={setSyncMsg} />
+                <SyncBtn url="/api/admin/sync-orders" label="↻ Sync commandes" onResult={setSyncMsg} />
+              </div>
             </div>
-          </div>
-          {syncResult && <p className={`text-xs mb-3 ${syncResult.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>{syncResult}</p>}
-          <div className="space-y-4">
-            <Field label="Tenant ID" name="bc_tenant_id" value={settings.bc_tenant_id ?? ''} onChange={handleChange} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-            <Field label="Client ID" name="bc_client_id" value={settings.bc_client_id ?? ''} onChange={handleChange} placeholder="App registration client ID" />
-            <Field label="Client Secret" name="bc_client_secret" value={settings.bc_client_secret ?? ''} onChange={handleChange} type="password" placeholder="App registration secret" />
-            <Field label="Environment" name="bc_environment" value={settings.bc_environment ?? ''} onChange={handleChange} placeholder="production" />
-            <Field label="Company ID" name="bc_company_id" value={settings.bc_company_id ?? ''} onChange={handleChange} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-          </div>
-        </section>
+          )}
+        </SectionCard>
 
       </div>
 
-      {/* ── Save ────────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
-        <p className="text-xs text-gray-400">Les clés secrètes sont masquées. Assurez-vous que votre base de données est chiffrée.</p>
-        <div className="flex items-center gap-3">
-          {saveMsg && <span className={`text-sm font-medium ${saveMsg.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>{saveMsg}</span>}
-          <button onClick={handleSave} disabled={saving}
-            className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
-            {saving ? 'Sauvegarde…' : 'Sauvegarder'}
-          </button>
+      {canEditCredentials && (
+        <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+          <p className="text-xs text-gray-400">Les clés secrètes sont chiffrées. Assurez-vous que votre base de données est sécurisée.</p>
+          <div className="flex items-center gap-3">
+            {saveMsg && <span className={`text-sm font-medium ${saveMsg.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>{saveMsg}</span>}
+            <button onClick={handleSave} disabled={saving}
+              className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+              {saving ? 'Sauvegarde…' : 'Sauvegarder'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
