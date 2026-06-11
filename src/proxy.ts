@@ -1,104 +1,146 @@
 /**
- * @deprecated Ce fichier est du code mort — Next.js n'invoque JAMAIS proxy.ts
- * automatiquement. La logique a été migrée vers src/middleware.ts
- * qui est le seul point d'entrée reconnu par le framework.
+ * Next.js 16 Edge Proxy — point d'entrée global unique pour :
+ *  1. Site-lock enforcement  (vérification cookie)
+ *  2. Dashboard / Admin auth (vérification JWT via next-auth)
+ *  3. Rate limiting sur les endpoints sensibles (auth, register, site-lock)
  *
- * Ce fichier est conservé pour référence historique uniquement.
+ * Next.js 16 a renommé la convention "middleware.ts" → "proxy.ts".
+ * L'export doit être nommé `proxy` (et non plus `middleware`).
  */
 
-import { getToken } from 'next-auth/jwt'
 import { NextRequest, NextResponse } from 'next/server'
-import { canAccessDashboard } from './lib/permissions'
-import type { Role } from './lib/permissions'
+import { getToken } from 'next-auth/jwt'
+import { rateLimit, getClientIp, rateLimitKey } from '@/lib/rate-limit'
+import { canAccessDashboard } from '@/lib/permissions'
+import type { Role } from '@/lib/permissions'
 
-const secret = process.env.NEXTAUTH_SECRET
 const LOCK_COOKIE = '__site_lock'
 
-// Paths that bypass the site password gate entirely
+// ─── Paths qui contournent le site-lock ──────────────────────────────────────
 const SITE_LOCK_BYPASS = [
   '/site-lock',
-  '/api/site-lock',   // includes /api/site-lock/check
+  '/api/site-lock',
+  '/api/auth',
   '/_next',
   '/favicon.ico',
   '/robots.txt',
+  '/sitemap',
+]
+
+// ─── Politiques de rate limiting (par IP) ────────────────────────────────────
+const RATE_POLICIES: Array<{
+  method: string
+  path: string
+  slug: string
+  limit: number
+  windowMs: number
+}> = [
+  // Site-lock : 10 tentatives / 10 minutes
+  { method: 'POST', path: '/api/site-lock', slug: 'site-lock', limit: 10, windowMs: 10 * 60_000 },
+  // Login : 20 tentatives / 15 minutes
+  { method: 'POST', path: '/api/auth/callback/credentials', slug: 'login', limit: 20, windowMs: 15 * 60_000 },
+  // Inscription : 5 / heure
+  { method: 'POST', path: '/api/register', slug: 'register', limit: 5, windowMs: 60 * 60_000 },
 ]
 
 export async function proxy(req: NextRequest) {
-  const pathname = req.nextUrl.pathname
+  const { pathname } = req.nextUrl
+  const method = req.method
 
-  // ── 1. Site password gate ───────────────────────────────────────────────────
-  const siteToken = process.env.SITE_TOKEN
-  if (siteToken && !SITE_LOCK_BYPASS.some((p) => pathname.startsWith(p))) {
-    const cookie = req.cookies.get(LOCK_COOKIE)?.value
+  // ── 0. Skip les assets statiques Next.js ──────────────────────────────────
+  if (
+    pathname.startsWith('/_next/static') ||
+    pathname.startsWith('/_next/image') ||
+    pathname === '/favicon.ico'
+  ) {
+    return NextResponse.next()
+  }
 
-    if (cookie !== siteToken) {
-      // Check if admin has disabled the lock from the dashboard
-      let lockEnabled = true
-      try {
-        const checkUrl = new URL('/api/site-lock/check', req.url)
-        const checkRes = await fetch(checkUrl.toString())
-        if (checkRes.ok) {
-          const data = await checkRes.json() as { enabled: boolean }
-          lockEnabled = data.enabled
+  // ── 1. Rate limiting (avant tout) ─────────────────────────────────────────
+  for (const policy of RATE_POLICIES) {
+    if (method !== policy.method) continue
+    if (!pathname.startsWith(policy.path)) continue
+
+    const ip     = getClientIp(req)
+    const key    = rateLimitKey(ip, policy.slug)
+    const result = rateLimit(key, policy.limit, policy.windowMs)
+
+    if (!result.allowed) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Réessayez plus tard.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After':        String(result.retryAfterSec),
+            'X-RateLimit-Limit':  String(policy.limit),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset':  String(Math.ceil(result.resetAt / 1000)),
+          },
         }
-      } catch {
-        // DB unavailable → default to locked (safe)
-      }
+      )
+    }
+    break // une seule politique peut correspondre par requête
+  }
 
-      if (lockEnabled) {
-        const url = req.nextUrl.clone()
-        url.pathname = '/site-lock'
-        url.searchParams.set('from', pathname)
-        return NextResponse.redirect(url)
+  // ── 2. Site-lock ──────────────────────────────────────────────────────────
+  const siteToken = process.env.SITE_TOKEN
+  if (siteToken) {
+    const isBypassed = SITE_LOCK_BYPASS.some((p) => pathname.startsWith(p))
+    if (!isBypassed) {
+      const cookieValue = req.cookies.get(LOCK_COOKIE)?.value
+      if (cookieValue !== siteToken) {
+        const lockUrl = req.nextUrl.clone()
+        lockUrl.pathname = '/site-lock'
+        lockUrl.searchParams.set('from', pathname)
+        return NextResponse.redirect(lockUrl)
       }
     }
   }
 
-  // ── 2. Auth-protected routes ────────────────────────────────────────────────
-  const isApiRoute = pathname.startsWith('/api/')
-  const isAdminPath = pathname.startsWith('/admin') || pathname.startsWith('/api/admin')
+  // ── 3. Auth sur les routes protégées ──────────────────────────────────────
+  const isApiRoute      = pathname.startsWith('/api/')
+  const isAdminPath     = pathname.startsWith('/admin')     || pathname.startsWith('/api/admin')
   const isDashboardPath = pathname.startsWith('/dashboard') || pathname.startsWith('/api/dashboard')
-  const isProtectedPage = pathname.startsWith('/account') || pathname.startsWith('/checkout')
+  const isProtectedPage = pathname.startsWith('/account')   || pathname.startsWith('/checkout')
 
-  if (!isAdminPath && !isDashboardPath && !isProtectedPage) return NextResponse.next()
+  if (!isAdminPath && !isDashboardPath && !isProtectedPage) {
+    return NextResponse.next()
+  }
 
-  const token = await getToken({ req, secret })
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
 
-  // Unauthenticated — redirect pages to login, return 401 for APIs
+  // Pas de session — redirect pages, 401 pour les APIs
   if (!token) {
-    if (isApiRoute) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (isApiRoute) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const loginUrl = new URL('/auth/login', req.url)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  // Dashboard paths — require a staff role (SUPER_ADMIN, ADMIN, MANAGER, CUSTOMER_SERVICE)
+  const role = token.role as Role | undefined
+
+  // Dashboard — rôle staff requis
   if (isDashboardPath) {
-    const role = token.role as Role | undefined
     if (!role || !canAccessDashboard(role)) {
-      if (isApiRoute) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-      }
+      if (isApiRoute) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       return NextResponse.redirect(new URL('/?error=unauthorized', req.url))
     }
     return NextResponse.next()
   }
 
-  // Legacy /admin paths — ADMIN / SUPER_ADMIN only
-  if (isAdminPath && token.role !== 'ADMIN' && token.role !== 'SUPER_ADMIN') {
-    if (isApiRoute) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // Admin — ADMIN / SUPER_ADMIN uniquement
+  if (isAdminPath) {
+    if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+      if (isApiRoute) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return NextResponse.redirect(new URL('/?error=unauthorized', req.url))
     }
-    return NextResponse.redirect(new URL('/?error=unauthorized', req.url))
+    return NextResponse.next()
   }
 
+  // Pages store protégées (/account, /checkout) — session quelconque suffisante
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
