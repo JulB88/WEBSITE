@@ -1,42 +1,24 @@
 import Stripe from 'stripe'
-import { prisma } from './prisma'
-
-let _stripe: Stripe | null = null
+import { SettingsService } from '@/lib/services'
 
 /**
- * Returns a Stripe client, reading the secret key from the DB first
- * (set via Admin → Settings) then falling back to the env var.
- * Lazy — never throws at module load time.
+ * Returns a Stripe client.
+ * Reads the secret key from the DB first (via SettingsService — auto-decrypts),
+ * then falls back to the STRIPE_SECRET_KEY env var.
  */
 export async function getStripe(): Promise<Stripe> {
-  // Always re-check DB key so settings-page changes take effect without restart
-  try {
-    const row = await prisma.setting.findUnique({ where: { key: 'stripe_secret_key' } })
-    if (row?.value) {
-      return new Stripe(row.value, { apiVersion: '2024-06-20', typescript: true })
-    }
-  } catch {
-    // DB unavailable — fall through to env var
+  const secretKey = await SettingsService.get('stripe_secret_key')
+
+  if (secretKey && !secretKey.startsWith('sk_test_REPLACE')) {
+    return new Stripe(secretKey, { apiVersion: '2024-06-20', typescript: true })
   }
 
-  const key = process.env.STRIPE_SECRET_KEY
-  if (!key || key.startsWith('sk_test_REPLACE')) {
-    throw new Error('Stripe is not configured. Go to Admin → Settings to add your secret key.')
-  }
-
-  if (!_stripe) {
-    _stripe = new Stripe(key, { apiVersion: '2024-06-20', typescript: true })
-  }
-  return _stripe
+  throw new Error('Stripe is not configured. Go to Settings to add your secret key.')
 }
 
 /**
- * Webhook secret — DB first, then env var.
+ * Webhook secret — DB first (auto-decrypted), then env var.
  */
 export async function getWebhookSecret(): Promise<string> {
-  try {
-    const row = await prisma.setting.findUnique({ where: { key: 'stripe_webhook_secret' } })
-    if (row?.value) return row.value
-  } catch {}
-  return process.env.STRIPE_WEBHOOK_SECRET || ''
+  return SettingsService.get('stripe_webhook_secret')
 }

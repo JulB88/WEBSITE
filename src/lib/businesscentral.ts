@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { SettingsService } from './services'
 
 // ─── BC API types ─────────────────────────────────────────────────────────────
 
@@ -349,20 +350,20 @@ async function buildCategoryMap(items: BCItem[]): Promise<Map<string, string>> {
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
-async function getSetting(dbKey: string, envKey: string): Promise<string> {
-  try {
-    const row = await prisma.setting.findUnique({ where: { key: dbKey } })
-    if (row?.value) return row.value
-  } catch {}
-  return process.env[envKey] || ''
-}
-
+/**
+ * Creates a BC client using a single DB query (via SettingsService.getMany).
+ * Secrets are automatically decrypted by SettingsService.
+ */
 export async function createBCClient(): Promise<BusinessCentralClient> {
-  const tenantId     = await getSetting('bc_tenant_id',     'BC_TENANT_ID')
-  const clientId     = await getSetting('bc_client_id',     'BC_CLIENT_ID')
-  const clientSecret = await getSetting('bc_client_secret', 'BC_CLIENT_SECRET')
-  const environment  = await getSetting('bc_environment',   'BC_ENVIRONMENT')
-  const companyId    = await getSetting('bc_company_id',    'BC_COMPANY_ID')
+  const settings = await SettingsService.getMany([
+    'bc_tenant_id',
+    'bc_client_id',
+    'bc_client_secret',
+    'bc_environment',
+    'bc_company_id',
+  ])
+
+  const { bc_tenant_id: tenantId, bc_client_id: clientId, bc_client_secret: clientSecret, bc_environment: environment, bc_company_id: companyId } = settings
 
   if (!tenantId || !clientId || !clientSecret || !environment || !companyId) {
     throw new Error('Business Central integration is not configured.')

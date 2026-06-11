@@ -1,3 +1,11 @@
+/**
+ * @deprecated Ce fichier est du code mort — Next.js n'invoque JAMAIS proxy.ts
+ * automatiquement. La logique a été migrée vers src/middleware.ts
+ * qui est le seul point d'entrée reconnu par le framework.
+ *
+ * Ce fichier est conservé pour référence historique uniquement.
+ */
+
 import { getToken } from 'next-auth/jwt'
 import { NextRequest, NextResponse } from 'next/server'
 import { canAccessDashboard } from './lib/permissions'

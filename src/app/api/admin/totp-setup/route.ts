@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { SettingsService } from '@/lib/services'
 import { generateSecret, verifySync } from 'otplib'
 import QRCode from 'qrcode'
 
-const ISSUER   = 'DSF Distribution'
-const ACCOUNT  = 'DSF'
+const ISSUER  = 'DSF Distribution'
+const ACCOUNT = 'DSF'
 
 function buildOtpAuthUrl(secret: string): string {
   const label = encodeURIComponent(`${ISSUER}:${ACCOUNT}`)
@@ -20,12 +20,13 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const row = await prisma.setting.findUnique({ where: { key: 'site_totp_secret' } })
-  if (!row?.value) {
+  // SettingsService.get decrypts the secret automatically
+  const totpSecret = await SettingsService.get('site_totp_secret')
+  if (!totpSecret) {
     return NextResponse.json({ configured: false })
   }
 
-  const qrDataUrl = await QRCode.toDataURL(buildOtpAuthUrl(row.value))
+  const qrDataUrl = await QRCode.toDataURL(buildOtpAuthUrl(totpSecret))
   return NextResponse.json({ configured: true, qrDataUrl })
 }
 
@@ -42,10 +43,11 @@ export async function POST(req: NextRequest) {
   if (body.action === 'generate') {
     const secret    = generateSecret()
     const qrDataUrl = await QRCode.toDataURL(buildOtpAuthUrl(secret))
+    // Return plain secret for QR display — it will be encrypted when saved (step 2)
     return NextResponse.json({ secret, qrDataUrl })
   }
 
-  // Step 2: verify code then save secret
+  // Step 2: verify code then save (SettingsService.set encrypts automatically)
   if (body.action === 'confirm') {
     const { secret, code } = body
     if (!secret || !code) {
@@ -54,15 +56,11 @@ export async function POST(req: NextRequest) {
 
     const isValid = verifySync({ token: String(code).replace(/\s/g, ''), secret })
     if (!isValid) {
-      return NextResponse.json({ ok: false, error: 'Code incorrect — réessaie avec le code actuel de l\'appli.' })
+      return NextResponse.json({ ok: false, error: "Code incorrect — réessaie avec le code actuel de l'appli." })
     }
 
-    await prisma.setting.upsert({
-      where:  { key: 'site_totp_secret' },
-      update: { value: secret },
-      create: { key: 'site_totp_secret', value: secret },
-    })
-
+    // Encrypted automatically by SettingsService.set (site_totp_secret is a SECRET_KEY)
+    await SettingsService.set('site_totp_secret', secret)
     return NextResponse.json({ ok: true })
   }
 

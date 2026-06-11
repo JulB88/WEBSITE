@@ -1,11 +1,17 @@
 import { prisma } from '@/lib/prisma'
+import { encryptSecret, decryptSecret } from '@/lib/crypto'
 
 /**
  * SettingsService — centralise toutes les opérations de configuration.
- * Les paramètres sont stockés en BD (table Setting) avec fallback env.
+ *
+ * Fonctionnalités :
+ *  - Stockage BD avec fallback variable d'environnement
+ *  - Chiffrement AES-256-GCM automatique des clés secrètes (SECRET_KEYS)
+ *  - Masquage pour affichage côté client
+ *  - Une seule requête BD pour lire plusieurs paramètres (getMany)
  */
 export class SettingsService {
-  // Clés autorisées à être persistées en BD
+  // ─── Clés autorisées en BD ─────────────────────────────────────────────────
   static readonly ALLOWED_KEYS = new Set([
     'store_name', 'store_currency', 'store_email',
     'stripe_publishable_key', 'stripe_secret_key', 'stripe_webhook_secret',
@@ -13,79 +19,140 @@ export class SettingsService {
     'site_lock_enabled', 'site_password', 'site_totp_secret',
   ])
 
-  // Clés dont la valeur doit être masquée en lecture
+  // ─── Clés chiffrées en BD + masquées en lecture ────────────────────────────
   static readonly SECRET_KEYS = new Set([
-    'stripe_secret_key', 'stripe_webhook_secret', 'bc_client_secret', 'site_totp_secret',
+    'stripe_secret_key',
+    'stripe_webhook_secret',
+    'bc_client_secret',
+    'site_totp_secret',
+    'site_password',
   ])
 
-  // Map clé BD → variable d'environnement (fallback)
+  // ─── Fallback variable d'environnement par clé BD ─────────────────────────
   private static readonly ENV_MAP: Record<string, string> = {
-    bc_tenant_id:     'BC_TENANT_ID',
-    bc_client_id:     'BC_CLIENT_ID',
-    bc_client_secret: 'BC_CLIENT_SECRET',
-    bc_environment:   'BC_ENVIRONMENT',
-    bc_company_id:    'BC_COMPANY_ID',
-    site_password:    'SITE_PASSWORD',
+    bc_tenant_id:          'BC_TENANT_ID',
+    bc_client_id:          'BC_CLIENT_ID',
+    bc_client_secret:      'BC_CLIENT_SECRET',
+    bc_environment:        'BC_ENVIRONMENT',
+    bc_company_id:         'BC_COMPANY_ID',
+    stripe_secret_key:     'STRIPE_SECRET_KEY',
+    stripe_webhook_secret: 'STRIPE_WEBHOOK_SECRET',
+    site_password:         'SITE_PASSWORD',
   }
 
-  /** Lit un paramètre — BD en priorité, sinon variable d'env */
+  // ──────────────────────────────────────────────────────────────────────────
+  // Lecture
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Lit un paramètre — BD en priorité, sinon variable d'env.
+   * Déchiffre automatiquement les clés secrètes.
+   */
   static async get(key: string): Promise<string> {
     try {
       const row = await prisma.setting.findUnique({ where: { key } })
-      if (row?.value) return row.value
-    } catch {}
+      if (row?.value) {
+        return this.SECRET_KEYS.has(key)
+          ? await decryptSecret(row.value)
+          : row.value
+      }
+    } catch {
+      // DB unavailable — fall through to env
+    }
     return process.env[this.ENV_MAP[key] ?? ''] ?? ''
   }
 
-  /** Lit plusieurs paramètres d'un coup */
+  /**
+   * Lit plusieurs paramètres en une seule requête BD.
+   * Déchiffre automatiquement les clés secrètes.
+   */
   static async getMany(keys: string[]): Promise<Record<string, string>> {
     const rows = await prisma.setting.findMany({ where: { key: { in: keys } } })
-    const dbMap = Object.fromEntries(rows.map(r => [r.key, r.value]))
+    const dbMap = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+
     const result: Record<string, string> = {}
-    for (const key of keys) {
-      result[key] = dbMap[key] ?? process.env[this.ENV_MAP[key] ?? ''] ?? ''
-    }
+    await Promise.all(
+      keys.map(async (key) => {
+        const rawValue = dbMap[key]
+        if (rawValue) {
+          result[key] = this.SECRET_KEYS.has(key)
+            ? await decryptSecret(rawValue)
+            : rawValue
+        } else {
+          result[key] = process.env[this.ENV_MAP[key] ?? ''] ?? ''
+        }
+      })
+    )
     return result
   }
 
-  /** Retourne tous les paramètres autorisés (secrets masqués) */
+  /**
+   * Retourne tous les paramètres autorisés.
+   * Les secrets sont masqués si `maskSecrets = true`.
+   * site_totp_secret est toujours exclu (ne doit jamais être transmis au client).
+   */
   static async getAll(maskSecrets = false): Promise<Record<string, string>> {
-    const keys = [...this.ALLOWED_KEYS].filter(k => k !== 'site_totp_secret')
+    const keys = [...this.ALLOWED_KEYS].filter((k) => k !== 'site_totp_secret')
     const raw = await this.getMany(keys)
     if (!maskSecrets) return raw
     return Object.fromEntries(
-      Object.entries(raw).map(([k, v]) =>
-        [k, this.SECRET_KEYS.has(k) && v ? this.maskSecret(v) : v]
-      )
+      Object.entries(raw).map(([k, v]) => [
+        k,
+        this.SECRET_KEYS.has(k) && v ? this.maskSecret(v) : v,
+      ])
     )
   }
 
-  /** Écrit un paramètre en BD */
+  // ──────────────────────────────────────────────────────────────────────────
+  // Écriture
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Écrit un paramètre en BD.
+   * Chiffre automatiquement les clés secrètes avant stockage.
+   */
   static async set(key: string, value: string): Promise<void> {
     if (!this.ALLOWED_KEYS.has(key)) return
+
+    const toStore = this.SECRET_KEYS.has(key) && value
+      ? await encryptSecret(value)
+      : value
+
     await prisma.setting.upsert({
       where:  { key },
-      update: { value },
-      create: { key, value },
+      update: { value: toStore },
+      create: { key, value: toStore },
     })
   }
 
-  /** Écrit plusieurs paramètres en une fois */
+  /**
+   * Écrit plusieurs paramètres en parallèle.
+   */
   static async setMany(settings: Record<string, string>): Promise<void> {
     const valid = Object.entries(settings).filter(([k]) => this.ALLOWED_KEYS.has(k))
     await Promise.all(valid.map(([k, v]) => this.set(k, v)))
   }
 
-  /** Masque une valeur secrète (ex: sk_live_XXXX → sk_l••••4xyz) */
+  // ──────────────────────────────────────────────────────────────────────────
+  // Utilitaires
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Masque une valeur secrète pour l'affichage.
+   * Ex: `sk_live_XXXX1234` → `sk_l••••••••1234`
+   */
   static maskSecret(value: string): string {
     if (value.length <= 8) return '••••••••'
     return value.slice(0, 4) + '••••••••' + value.slice(-4)
   }
 
-  /** Teste si un secret semble configuré (non vide et non placeholder) */
+  /**
+   * Vérifie si une valeur semble correctement configurée
+   * (non vide, non placeholder).
+   */
   static isConfigured(value: string): boolean {
     if (!value) return false
     const placeholders = ['REPLACE_ME', 'YOUR_KEY', 'PLACEHOLDER']
-    return !placeholders.some(p => value.toUpperCase().includes(p))
+    return !placeholders.some((p) => value.toUpperCase().includes(p))
   }
 }
