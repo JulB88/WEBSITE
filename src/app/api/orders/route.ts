@@ -113,27 +113,48 @@ export async function POST(req: NextRequest) {
     }
 
     // --- Create order with server-computed prices ---
-    const order = await prisma.order.create({
-      data: {
-        userId: session.user.id,
-        businessCustomerId: session.user.businessCustomerId || null,
-        totalAmount: pi.amount / 100,
-        stripePaymentIntentId,
-        status: 'PROCESSING',
-        orderItems: {
-          create: lineItems.map((li) => ({
-            productId: li.productId,
-            quantity: li.quantity,
-            unitPrice: li.unitPrice,
-          })),
+    // Catch P2002 (unique constraint on stripePaymentIntentId) to handle the
+    // TOCTOU race condition: two concurrent requests both pass the findUnique
+    // check above, but only one succeeds the insert. The loser gets P2002
+    // and we return the winner's order idempotently.
+    let order: Awaited<ReturnType<typeof prisma.order.findUnique>> & object | null = null
+    try {
+      order = await prisma.order.create({
+        data: {
+          userId:               session.user.id,
+          businessCustomerId:   session.user.businessCustomerId || null,
+          totalAmount:          pi.amount / 100,
+          stripePaymentIntentId,
+          status: 'PROCESSING',
+          orderItems: {
+            create: lineItems.map((li) => ({
+              productId: li.productId,
+              quantity:  li.quantity,
+              unitPrice: li.unitPrice,
+            })),
+          },
         },
-      },
-      include: {
-        orderItems: {
-          include: { product: { select: { id: true, name: true, bcItemNo: true } } },
+        include: {
+          orderItems: {
+            include: { product: { select: { id: true, name: true, bcItemNo: true } } },
+          },
         },
-      },
-    })
+      })
+    } catch (createErr: any) {
+      if (createErr?.code === 'P2002') {
+        // Race condition — another request already created this order
+        const raceWinner = await prisma.order.findUnique({
+          where: { stripePaymentIntentId },
+          include: {
+            orderItems: {
+              include: { product: { select: { id: true, name: true, bcItemNo: true } } },
+            },
+          },
+        })
+        if (raceWinner) return NextResponse.json(raceWinner)
+      }
+      throw createErr
+    }
 
     return NextResponse.json(order, { status: 201 })
   } catch (err: any) {

@@ -59,14 +59,24 @@ export interface BCSalesOrder {
 
 // ─── Client ──────────────────────────────────────────────────────────────────
 
+// ─── Global token cache ───────────────────────────────────────────────────────
+// In serverless (Vercel), each invocation can create a new class instance,
+// which would discard the instance-level token cache and refetch OAuth on every
+// request. Storing the token in globalThis makes it survive warm instance reuse.
+
+interface CachedToken {
+  value: string
+  expiresAt: number
+  clientId: string // invalidate when credentials change
+}
+const _globalBC = globalThis as unknown as { _bcTokenCache?: CachedToken }
+
 export class BusinessCentralClient {
   private tenantId: string
   private clientId: string
   private clientSecret: string
   private environment: string
   private companyId: string
-  private accessToken: string | null = null
-  private tokenExpiry: number = 0
 
   constructor(
     tenantId: string,
@@ -75,16 +85,18 @@ export class BusinessCentralClient {
     environment: string,
     companyId: string
   ) {
-    this.tenantId = tenantId
-    this.clientId = clientId
+    this.tenantId     = tenantId
+    this.clientId     = clientId
     this.clientSecret = clientSecret
-    this.environment = environment
-    this.companyId = companyId
+    this.environment  = environment
+    this.companyId    = companyId
   }
 
   async getAccessToken(): Promise<string> {
-    if (this.accessToken && Date.now() < this.tokenExpiry) {
-      return this.accessToken
+    const cached = _globalBC._bcTokenCache
+    // Valid if: not expired AND belongs to the current clientId (invalidates on credential change)
+    if (cached && cached.clientId === this.clientId && Date.now() < cached.expiresAt) {
+      return cached.value
     }
 
     const response = await fetch(
@@ -93,10 +105,10 @@ export class BusinessCentralClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: this.clientId,
+          grant_type:    'client_credentials',
+          client_id:     this.clientId,
           client_secret: this.clientSecret,
-          scope: 'https://api.businesscentral.dynamics.com/.default',
+          scope:         'https://api.businesscentral.dynamics.com/.default',
         }),
         signal: AbortSignal.timeout(10_000),
       }
@@ -107,9 +119,12 @@ export class BusinessCentralClient {
     }
 
     const data = await response.json()
-    this.accessToken = data.access_token
-    this.tokenExpiry = Date.now() + (data.expires_in - 60) * 1000
-    return this.accessToken!
+    _globalBC._bcTokenCache = {
+      value:     data.access_token,
+      expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+      clientId:  this.clientId,
+    }
+    return _globalBC._bcTokenCache.value
   }
 
   private get baseUrl(): string {

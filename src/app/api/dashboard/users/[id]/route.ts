@@ -114,6 +114,18 @@ export async function DELETE(req: NextRequest, { params }: Context) {
     return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
   }
 
-  await prisma.user.delete({ where: { id } })
-  return new NextResponse(null, { status: 204 })
+  try {
+    await prisma.user.delete({ where: { id } })
+    return new NextResponse(null, { status: 204 })
+  } catch (err: any) {
+    // P2003 = FK constraint violation — user has orders, cannot delete
+    if (err?.code === 'P2003') {
+      return NextResponse.json(
+        { error: 'Cannot delete a user who has existing orders. Deactivate the account instead.' },
+        { status: 409 }
+      )
+    }
+    console.error('[users DELETE]', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
