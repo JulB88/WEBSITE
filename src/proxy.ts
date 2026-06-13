@@ -89,10 +89,27 @@ export async function proxy(req: NextRequest) {
     if (!isBypassed) {
       const cookieValue = req.cookies.get(LOCK_COOKIE)?.value
       if (cookieValue !== siteToken) {
-        const lockUrl = req.nextUrl.clone()
-        lockUrl.pathname = '/site-lock'
-        lockUrl.searchParams.set('from', pathname)
-        return NextResponse.redirect(lockUrl)
+        // L'admin peut désactiver le verrou depuis le dashboard (setting site_lock_enabled).
+        // Le check est fait via l'API (cachée 10 s) — Prisma n'est pas dispo en Edge runtime.
+        let lockEnabled = true
+        try {
+          const checkRes = await fetch(new URL('/api/site-lock/check', req.url), {
+            signal: AbortSignal.timeout(3_000),
+          })
+          if (checkRes.ok) {
+            const data = (await checkRes.json()) as { enabled: boolean }
+            lockEnabled = data.enabled
+          }
+        } catch {
+          // BD/API indisponible → verrouillé par défaut (fail-safe)
+        }
+
+        if (lockEnabled) {
+          const lockUrl = req.nextUrl.clone()
+          lockUrl.pathname = '/site-lock'
+          lockUrl.searchParams.set('from', pathname)
+          return NextResponse.redirect(lockUrl)
+        }
       }
     }
   }

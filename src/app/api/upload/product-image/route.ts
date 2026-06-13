@@ -49,10 +49,23 @@ export async function POST(req: NextRequest) {
   const filename = `${safeItemNo}.${ext}`
 
   const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'products')
-  await mkdir(uploadDir, { recursive: true })
 
-  const bytes = await file.arrayBuffer()
-  await writeFile(path.join(uploadDir, filename), Buffer.from(bytes))
+  try {
+    await mkdir(uploadDir, { recursive: true })
+    const bytes = await file.arrayBuffer()
+    await writeFile(path.join(uploadDir, filename), Buffer.from(bytes))
+  } catch (err: any) {
+    // Vercel serverless: filesystem en lecture seule (EROFS) — l'upload local
+    // ne fonctionne qu'en self-hosted. Utiliser un stockage objet (Vercel Blob,
+    // S3) pour la production. En attendant : message clair au lieu d'un 500 opaque.
+    if (err?.code === 'EROFS' || err?.code === 'EACCES') {
+      return NextResponse.json(
+        { error: "L'upload de fichiers n'est pas disponible sur cet hébergement. Utilisez une URL d'image externe (champ imageUrl du produit)." },
+        { status: 501 }
+      )
+    }
+    throw err
+  }
 
   const imageUrl = `/uploads/products/${filename}`
 

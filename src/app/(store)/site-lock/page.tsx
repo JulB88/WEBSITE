@@ -71,7 +71,10 @@ function SiteLockForm() {
     })
 
     if (res.ok) {
-      window.location.href = searchParams.get('from') || '/'
+      // Anti open-redirect : n'accepte que les chemins internes ("/..." mais pas "//...")
+      const from = searchParams.get('from') || '/'
+      const safe = from.startsWith('/') && !from.startsWith('//') ? from : '/'
+      window.location.href = safe
     } else {
       const data = await res.json().catch(() => ({}))
       setError(data.error || 'Code incorrect.')

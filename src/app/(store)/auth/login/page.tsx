@@ -11,7 +11,9 @@ import Button from '@/components/ui/Button'
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/'
+  // Anti open-redirect : n'accepte que les chemins internes ("/..." mais pas "//...")
+  const rawCallback = searchParams.get('callbackUrl') || '/'
+  const callbackUrl = rawCallback.startsWith('/') && !rawCallback.startsWith('//') ? rawCallback : '/'
   const { t } = useI18n()
 
   const [form, setForm] = useState({ email: '', password: '' })

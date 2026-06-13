@@ -47,6 +47,17 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     const body = await req.json()
     const { status, bcSalesOrderNo } = body
 
+    const VALID_STATUSES = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+    if (status && !VALID_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { error: `Invalid status. Valid values: ${VALID_STATUSES.join(', ')}` },
+        { status: 400 }
+      )
+    }
+    if (bcSalesOrderNo !== undefined && bcSalesOrderNo !== null && typeof bcSalesOrderNo !== 'string') {
+      return NextResponse.json({ error: 'bcSalesOrderNo must be a string' }, { status: 400 })
+    }
+
     const order = await prisma.order.update({
       where: { id },
       data: {

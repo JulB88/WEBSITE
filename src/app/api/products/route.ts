@@ -25,10 +25,17 @@ async function applyBusinessPricing(
 
   const discountPercent = bc.priceList?.discountPercent ?? bc.discountPercent
 
+  // Map productId → overridePrice : O(n+m) au lieu de .find() par produit O(n×m)
+  const overrideMap = new Map(
+    (bc.priceList?.priceListItems ?? [])
+      .filter((i) => i.overridePrice != null)
+      .map((i) => [i.productId, i.overridePrice as number])
+  )
+
   return products.map((product) => {
-    const overrideItem = bc.priceList?.priceListItems.find((i) => i.productId === product.id)
-    const displayPrice = overrideItem?.overridePrice != null
-      ? overrideItem.overridePrice
+    const override = overrideMap.get(product.id)
+    const displayPrice = override != null
+      ? override
       : product.price * (1 - discountPercent / 100)
 
     return {
