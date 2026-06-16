@@ -19,7 +19,10 @@ interface Settings {
   store_email?: string
   site_lock_enabled?: string
   site_password?: string
-  resend_api_key?: string
+  smtp_host?: string
+  smtp_port?: string
+  smtp_user?: string
+  smtp_password?: string
   email_from?: string
 }
 
@@ -408,19 +411,32 @@ export default function SettingsPage() {
           </SectionCard>
         )}
 
-        {/* ── Courriels (Resend) — ADMIN+ ── */}
+        {/* ── Courriels (SMTP) — ADMIN+ ── */}
         {canEditCredentials && (
-          <SectionCard icon="📧" title="Courriels transactionnels"
-            subtitle="Factures, confirmations de paiement et états de compte (via Resend)">
+          <SectionCard icon="📧" title="Courriels transactionnels (SMTP)"
+            subtitle="Factures, confirmations de paiement et états de compte — envoyés depuis ta boîte courriel">
             <div className="space-y-4">
-              <Field label="Clé API Resend" name="resend_api_key" type="password"
-                value={settings.resend_api_key ?? ''} onChange={handleChange}
-                placeholder="re_…"
-                hint="Créez une clé sur resend.com → API Keys. Sans clé, aucun courriel n'est envoyé." />
-              <Field label="Adresse expéditeur" name="email_from"
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-2">
+                  <Field label="Serveur SMTP" name="smtp_host"
+                    value={settings.smtp_host ?? ''} onChange={handleChange}
+                    placeholder="smtp.office365.com" hint="Microsoft 365 : smtp.office365.com · Gmail : smtp.gmail.com" />
+                </div>
+                <Field label="Port" name="smtp_port"
+                  value={settings.smtp_port ?? ''} onChange={handleChange}
+                  placeholder="587" hint="587 (TLS) ou 465 (SSL)" />
+              </div>
+              <Field label="Utilisateur / courriel" name="smtp_user"
+                value={settings.smtp_user ?? ''} onChange={handleChange}
+                placeholder="factures@tondomaine.com" />
+              <Field label="Mot de passe" name="smtp_password" type="password"
+                value={settings.smtp_password ?? ''} onChange={handleChange}
+                placeholder="Mot de passe ou mot de passe d'application"
+                hint="Microsoft 365 / Gmail avec 2FA : crée un « mot de passe d'application ». Sans config SMTP, aucun courriel n'est envoyé." />
+              <Field label="Adresse expéditeur (optionnel)" name="email_from"
                 value={settings.email_from ?? ''} onChange={handleChange}
-                placeholder="DSF Distribution <factures@votredomaine.com>"
-                hint="Le domaine doit être vérifié dans Resend. Format : Nom <courriel@domaine.com>" />
+                placeholder="DSF Distribution <factures@tondomaine.com>"
+                hint="Défaut : l'utilisateur ci-dessus. Format : Nom <courriel@domaine.com>" />
             </div>
           </SectionCard>
         )}

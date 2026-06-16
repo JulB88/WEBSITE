@@ -1,11 +1,18 @@
+import nodemailer from 'nodemailer'
 import { SettingsService } from './SettingsService'
 
 /**
- * EmailService — envoi de courriels transactionnels via l'API Resend.
+ * EmailService — envoi de courriels transactionnels par SMTP (Nodemailer).
+ *
+ * Fonctionne avec n'importe quel fournisseur : Microsoft 365, Gmail, OVH, etc.
+ * Les courriels partent de ta vraie adresse d'affaires.
  *
  * Configuration (page Settings) :
- *  - resend_api_key : clé API Resend (chiffrée en BD)
- *  - email_from     : adresse expéditeur (ex: "DSF Distribution <factures@dsf.com>")
+ *  - smtp_host     : serveur SMTP (ex: smtp.office365.com, smtp.gmail.com)
+ *  - smtp_port     : port (587 STARTTLS recommandé, ou 465 SSL)
+ *  - smtp_user     : nom d'utilisateur / adresse courriel
+ *  - smtp_password : mot de passe (ou mot de passe d'application) — chiffré en BD
+ *  - email_from    : adresse expéditeur (défaut: smtp_user)
  *
  * Si non configuré : les envois sont loggés et ignorés (no-op) — aucune
  * fonctionnalité ne plante en l'absence de configuration email.
@@ -53,32 +60,33 @@ export interface StatementData {
 const CURRENCY = (n: number) => `${n.toFixed(2)} $`
 
 export class EmailService {
-  /** Envoie un courriel via Resend. Retourne true si envoyé, false si non configuré. */
+  /** Envoie un courriel par SMTP. Retourne true si envoyé, false si non configuré. */
   static async send(to: string, subject: string, html: string): Promise<boolean> {
-    const { resend_api_key: apiKey, email_from: from } = await SettingsService.getMany([
-      'resend_api_key',
-      'email_from',
+    const cfg = await SettingsService.getMany([
+      'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'email_from',
     ])
+    const host = cfg.smtp_host
+    const user = cfg.smtp_user
+    const pass = cfg.smtp_password
+    const port = Number(cfg.smtp_port) || 587
+    const from = cfg.email_from || user
 
-    if (!apiKey || !from) {
-      console.warn(`[email] Non configuré — courriel "${subject}" pour ${to} non envoyé`)
+    if (!host || !user || !pass) {
+      console.warn(`[email] SMTP non configuré — courriel "${subject}" pour ${to} non envoyé`)
       return false
     }
 
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ from, to: [to], subject, html }),
-      signal: AbortSignal.timeout(15_000),
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      // 465 = SSL implicite ; 587/autres = STARTTLS
+      secure: port === 465,
+      auth: { user, pass },
+      connectionTimeout: 15_000,
+      greetingTimeout: 10_000,
     })
 
-    if (!res.ok) {
-      const body = await res.text()
-      throw new Error(`Resend API ${res.status}: ${body}`)
-    }
+    await transporter.sendMail({ from, to, subject, html })
     return true
   }
 

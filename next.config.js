@@ -10,7 +10,7 @@ const nextConfig = {
   },
 
   // Moved out of experimental in Next.js 15+
-  serverExternalPackages: ['@prisma/client', 'bcryptjs'],
+  serverExternalPackages: ['@prisma/client', 'bcryptjs', 'nodemailer'],
 
   async headers() {
     return [

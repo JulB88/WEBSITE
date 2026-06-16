@@ -17,7 +17,7 @@ export class SettingsService {
     'stripe_publishable_key', 'stripe_secret_key', 'stripe_webhook_secret',
     'bc_tenant_id', 'bc_client_id', 'bc_client_secret', 'bc_environment', 'bc_company_id',
     'site_lock_enabled', 'site_password', 'site_totp_secret',
-    'resend_api_key', 'email_from',
+    'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'email_from',
   ])
 
   // ─── Clés chiffrées en BD + masquées en lecture ────────────────────────────
@@ -27,7 +27,7 @@ export class SettingsService {
     'bc_client_secret',
     'site_totp_secret',
     'site_password',
-    'resend_api_key',
+    'smtp_password',
   ])
 
   // ─── Fallback variable d'environnement par clé BD ─────────────────────────
@@ -40,6 +40,11 @@ export class SettingsService {
     stripe_secret_key:     'STRIPE_SECRET_KEY',
     stripe_webhook_secret: 'STRIPE_WEBHOOK_SECRET',
     site_password:         'SITE_PASSWORD',
+    smtp_host:             'SMTP_HOST',
+    smtp_port:             'SMTP_PORT',
+    smtp_user:             'SMTP_USER',
+    smtp_password:         'SMTP_PASSWORD',
+    email_from:            'EMAIL_FROM',
   }
 
   // ──────────────────────────────────────────────────────────────────────────
