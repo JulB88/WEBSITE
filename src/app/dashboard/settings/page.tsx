@@ -19,6 +19,8 @@ interface Settings {
   store_email?: string
   site_lock_enabled?: string
   site_password?: string
+  resend_api_key?: string
+  email_from?: string
 }
 
 type TestStatus = 'idle' | 'loading' | 'ok' | 'error'
@@ -402,6 +404,23 @@ export default function SettingsPage() {
               <Field label="Clé publiable" name="stripe_publishable_key" value={settings.stripe_publishable_key ?? ''} onChange={handleChange} placeholder="pk_live_…" />
               <Field label="Clé secrète" name="stripe_secret_key" type="password" value={settings.stripe_secret_key ?? ''} onChange={handleChange} placeholder="sk_live_…" />
               <Field label="Secret webhook" name="stripe_webhook_secret" type="password" value={settings.stripe_webhook_secret ?? ''} onChange={handleChange} placeholder="whsec_…" hint="Depuis vos paramètres de webhook Stripe" />
+            </div>
+          </SectionCard>
+        )}
+
+        {/* ── Courriels (Resend) — ADMIN+ ── */}
+        {canEditCredentials && (
+          <SectionCard icon="📧" title="Courriels transactionnels"
+            subtitle="Factures, confirmations de paiement et états de compte (via Resend)">
+            <div className="space-y-4">
+              <Field label="Clé API Resend" name="resend_api_key" type="password"
+                value={settings.resend_api_key ?? ''} onChange={handleChange}
+                placeholder="re_…"
+                hint="Créez une clé sur resend.com → API Keys. Sans clé, aucun courriel n'est envoyé." />
+              <Field label="Adresse expéditeur" name="email_from"
+                value={settings.email_from ?? ''} onChange={handleChange}
+                placeholder="DSF Distribution <factures@votredomaine.com>"
+                hint="Le domaine doit être vérifié dans Resend. Format : Nom <courriel@domaine.com>" />
             </div>
           </SectionCard>
         )}

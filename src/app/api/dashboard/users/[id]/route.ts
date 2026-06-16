@@ -23,6 +23,7 @@ const USER_SELECT = {
       vatNumber: true,
       discountPercent: true,
       priceListId: true,
+      creditLimit: true,
     },
   },
   _count: { select: { orders: true } },
@@ -51,7 +52,16 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   }
 
   const body = await req.json()
-  const { name, email, role, password, companyName, vatNumber, discountPercent, priceListId } = body
+  const { name, email, role, password, companyName, vatNumber, discountPercent, priceListId, creditLimit } = body
+
+  // Validation de la limite de crédit
+  let parsedCreditLimit: number | undefined = undefined
+  if (creditLimit !== undefined) {
+    parsedCreditLimit = Number(creditLimit)
+    if (!Number.isFinite(parsedCreditLimit) || parsedCreditLimit < 0) {
+      return NextResponse.json({ error: 'creditLimit doit être un nombre ≥ 0' }, { status: 400 })
+    }
+  }
 
   const existing = await prisma.user.findUnique({ where: { id } })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -70,7 +80,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   if (password) userUpdate.password = await bcrypt.hash(password, 12)
 
   const finalRole = role ?? existing.role
-  if (finalRole === 'BUSINESS' && (companyName !== undefined || vatNumber !== undefined || discountPercent !== undefined || priceListId !== undefined)) {
+  if (finalRole === 'BUSINESS' && (companyName !== undefined || vatNumber !== undefined || discountPercent !== undefined || priceListId !== undefined || parsedCreditLimit !== undefined)) {
     userUpdate.businessCustomer = {
       upsert: {
         create: {
@@ -78,12 +88,14 @@ export async function PATCH(req: NextRequest, { params }: Context) {
           vatNumber: vatNumber ?? null,
           discountPercent: discountPercent ?? 0,
           priceListId: priceListId ?? null,
+          creditLimit: parsedCreditLimit ?? 0,
         },
         update: {
           ...(companyName !== undefined && { companyName }),
           ...(vatNumber !== undefined && { vatNumber }),
           ...(discountPercent !== undefined && { discountPercent }),
           ...(priceListId !== undefined && { priceListId }),
+          ...(parsedCreditLimit !== undefined && { creditLimit: parsedCreditLimit }),
         },
       },
     }
@@ -94,7 +106,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     data: userUpdate,
     select: {
       id: true, email: true, name: true, role: true,
-      businessCustomer: { select: { id: true, companyName: true, vatNumber: true, discountPercent: true, priceListId: true } },
+      businessCustomer: { select: { id: true, companyName: true, vatNumber: true, discountPercent: true, priceListId: true, creditLimit: true } },
     },
   })
 

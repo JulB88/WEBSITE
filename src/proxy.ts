@@ -21,6 +21,9 @@ const SITE_LOCK_BYPASS = [
   '/site-lock',
   '/api/site-lock',
   '/api/auth',
+  // Appels machine-à-machine — pas de cookie navigateur :
+  '/api/payments/webhook', // webhooks Stripe (signature vérifiée dans la route)
+  '/api/cron',             // crons Vercel (CRON_SECRET vérifié dans la route)
   '/_next',
   '/favicon.ico',
   '/robots.txt',

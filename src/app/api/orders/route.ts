@@ -6,6 +6,7 @@ import { getStripe } from '@/lib/stripe'
 import { computeOrderTotal } from '@/lib/pricing'
 import { hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
+import { BillingService } from '@/lib/services'
 
 const MAX_LIMIT = 100
 
@@ -154,6 +155,13 @@ export async function POST(req: NextRequest) {
         if (raceWinner) return NextResponse.json(raceWinner)
       }
       throw createErr
+    }
+
+    // Facture d'achat par courriel + numéro de facture (non bloquant)
+    if (order) {
+      BillingService.sendPurchaseInvoice(order.id).catch((err) =>
+        console.error('[orders POST] Envoi facture achat échoué (non-fatal):', err)
+      )
     }
 
     return NextResponse.json(order, { status: 201 })

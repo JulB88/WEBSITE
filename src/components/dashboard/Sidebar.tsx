@@ -17,6 +17,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Overview',    href: '/dashboard',              icon: '📊' },
   { label: 'Orders',      href: '/dashboard/orders',        icon: '📦', permission: 'orders:read' },
+  { label: 'Facturation', href: '/dashboard/billing',       icon: '🧾', permission: 'orders:read' },
   { label: 'Customers',   href: '/dashboard/customers',     icon: '👥', permission: 'users:read' },
   { label: 'Products',    href: '/dashboard/products',      icon: '🛍️', permission: 'products:read' },
   { label: 'Categories',  href: '/dashboard/categories',    icon: '🗂️', permission: 'categories:read' },

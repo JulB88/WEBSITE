@@ -1,4 +1,6 @@
 export { SettingsService } from './SettingsService'
-export { ProductService } from './ProductService'
-export { OrderService }   from './OrderService'
+export { ProductService }  from './ProductService'
+export { OrderService }    from './OrderService'
 export { CustomerService } from './CustomerService'
+export { EmailService }    from './EmailService'
+export { BillingService }  from './BillingService'

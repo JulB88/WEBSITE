@@ -12,6 +12,7 @@ interface BusinessCustomer {
   accountRequestType: string | null
   discountPercent: number
   priceListId: string | null
+  creditLimit: number
 }
 
 interface User {
@@ -31,6 +32,7 @@ const ROLES: Role[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CUSTOMER_SERVICE', 'B
 const EMPTY_FORM = {
   email: '', name: '', password: '', role: 'CUSTOMER' as Role,
   companyName: '', vatNumber: '', customerNo: '', discountPercent: '0', priceListId: '',
+  creditLimit: '0',
 }
 
 export default function CustomersPage() {
@@ -91,6 +93,7 @@ export default function CustomersPage() {
       customerNo: u.businessCustomer?.customerNo ?? '',
       discountPercent: String(u.businessCustomer?.discountPercent ?? 0),
       priceListId: u.businessCustomer?.priceListId ?? '',
+      creditLimit: String(u.businessCustomer?.creditLimit ?? 0),
     })
     setError('')
     setShowModal(true)
@@ -112,6 +115,7 @@ export default function CustomersPage() {
         payload.customerNo = form.customerNo || null
         payload.discountPercent = parseFloat(form.discountPercent) || 0
         payload.priceListId = form.priceListId || null
+        payload.creditLimit = parseFloat(form.creditLimit) || 0
       }
 
       const url = editUser ? `/api/dashboard/users/${editUser.id}` : '/api/dashboard/users'
@@ -280,6 +284,12 @@ export default function CustomersPage() {
                   <FormField label="Numéro TPS/TVQ" value={form.vatNumber} onChange={v => setForm(f => ({ ...f, vatNumber: v }))} />
                   <FormField label="N° client DSF" value={form.customerNo} onChange={v => setForm(f => ({ ...f, customerNo: v }))} />
                   <FormField label="Remise %" type="number" value={form.discountPercent} onChange={v => setForm(f => ({ ...f, discountPercent: v }))} />
+                  <div>
+                    <FormField label="Limite de crédit ($)" type="number" value={form.creditLimit} onChange={v => setForm(f => ({ ...f, creditLimit: v }))} />
+                    <p className="text-xs text-gray-400 mt-1">
+                      0 = achats au compte désactivés. Le solde impayé du client ne peut pas dépasser cette limite.
+                    </p>
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Price List</label>
                     <select

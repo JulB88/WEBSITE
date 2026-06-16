@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { loadStripe } from '@stripe/stripe-js'
@@ -14,6 +14,13 @@ import { useCartStore } from '@/lib/cart-store'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Link from 'next/link'
+
+interface CreditStatus {
+  onAccountEnabled: boolean
+  creditLimit: number
+  outstanding: number
+  available: number
+}
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -38,6 +45,17 @@ function CheckoutForm() {
   const [error, setError] = useState<string | null>(null)
   const [serverTotal, setServerTotal] = useState<number | null>(null)
   const [serverCurrency, setServerCurrency] = useState<string>('cad')
+  // Achats au compte (clients entrepreneurs avec limite de crédit)
+  const [credit, setCredit] = useState<CreditStatus | null>(null)
+  const [payMode, setPayMode] = useState<'card' | 'account'>('card')
+
+  useEffect(() => {
+    if (!session?.user.businessCustomerId) return
+    fetch('/api/account/credit')
+      .then((r) => r.json())
+      .then((d) => { if (d.onAccountEnabled) setCredit(d) })
+      .catch(() => {})
+  }, [session?.user.businessCustomerId])
   const [billingDetails, setBillingDetails] = useState({
     name: session?.user.name || '',
     email: session?.user.email || '',
@@ -51,8 +69,40 @@ function CheckoutForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!stripe || !elements) return
     if (items.length === 0) { setError('Votre panier est vide.'); return }
+
+    // ── Achat porté au compte client ─────────────────────────────────────────
+    if (payMode === 'account') {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch('/api/orders/on-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: items.map((item) => ({ id: item.id, quantity: item.quantity })),
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          if (data.code === 'CREDIT_EXCEEDED') {
+            setPayMode('card')
+            throw new Error(`${data.error}`)
+          }
+          throw new Error(data.error || 'Impossible de porter cet achat à votre compte.')
+        }
+        clearCart()
+        router.push('/checkout/success')
+        return
+      } catch (err: any) {
+        setError(err.message || "L'achat au compte a échoué.")
+        setLoading(false)
+        return
+      }
+    }
+
+    // ── Paiement par carte (Stripe) ──────────────────────────────────────────
+    if (!stripe || !elements) return
 
     setLoading(true)
     setError(null)
@@ -215,22 +265,88 @@ function CheckoutForm() {
           <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232', marginBottom: '1.25rem' }}>
             Paiement
           </h2>
-          <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', padding: '1rem' }}>
-            <CardElement
-              options={{
-                style: {
-                  base: { fontSize: '16px', color: '#111827', '::placeholder': { color: '#9ca3af' } },
-                  invalid: { color: '#ef4444' },
-                },
-              }}
-            />
-          </div>
-          <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-            </svg>
-            Sécurisé par Stripe. Vos informations ne sont jamais stockées sur nos serveurs.
-          </p>
+
+          {/* Choix du mode de paiement — clients entrepreneurs avec crédit */}
+          {credit && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+              {([
+                { mode: 'card' as const,    icon: '💳', label: 'Carte de crédit' },
+                { mode: 'account' as const, icon: '🧾', label: 'Porter à mon compte' },
+              ]).map(({ mode, icon, label }) => {
+                const active = payMode === mode
+                const disabled = mode === 'account' && subtotal > credit.available
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setPayMode(mode)}
+                    aria-pressed={active}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      border: `2px solid ${active ? '#e51937' : '#d1d5db'}`,
+                      backgroundColor: disabled ? '#f3f4f6' : active ? '#fff5f6' : '#fff',
+                      color: disabled ? '#9ca3af' : active ? '#e51937' : '#6b7280',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                    }}
+                  >
+                    <span style={{ fontSize: '1.2rem' }}>{icon}</span>
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Info crédit pour le mode "au compte" */}
+          {credit && payMode === 'account' && (
+            <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fcd34d', padding: '0.85rem 1rem', marginBottom: '1rem' }}>
+              <p style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 600 }}>
+                Achat porté à votre compte client
+              </p>
+              <p style={{ fontSize: '0.75rem', color: '#a16207', marginTop: '0.25rem' }}>
+                Crédit disponible : <strong>{fmt(credit.available, displayCurrency)}</strong> sur une limite de {fmt(credit.creditLimit, displayCurrency)}
+                {credit.outstanding > 0 && <> — solde impayé actuel : {fmt(credit.outstanding, displayCurrency)}</>}.
+                Une facture vous sera transmise par courriel.
+              </p>
+            </div>
+          )}
+          {credit && subtotal > credit.available && payMode === 'card' && (
+            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '0.75rem 1rem', marginBottom: '1rem' }}>
+              <p style={{ fontSize: '0.75rem', color: '#b91c1c' }}>
+                Cette commande dépasse votre crédit disponible ({fmt(credit.available, displayCurrency)}) — l'achat au compte est désactivé. Vous pouvez payer par carte de crédit.
+              </p>
+            </div>
+          )}
+
+          {payMode === 'card' && (
+            <>
+              <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', padding: '1rem' }}>
+                <CardElement
+                  options={{
+                    style: {
+                      base: { fontSize: '16px', color: '#111827', '::placeholder': { color: '#9ca3af' } },
+                      invalid: { color: '#ef4444' },
+                    },
+                  }}
+                />
+              </div>
+              <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                </svg>
+                Sécurisé par Stripe. Vos informations ne sont jamais stockées sur nos serveurs.
+              </p>
+            </>
+          )}
         </div>
 
         {error && (
@@ -239,8 +355,12 @@ function CheckoutForm() {
           </div>
         )}
 
-        <Button type="submit" size="lg" fullWidth isLoading={loading} disabled={!stripe || loading}>
-          {loading ? 'Traitement en cours…' : `Payer ${fmt(displayTotal, displayCurrency)}`}
+        <Button type="submit" size="lg" fullWidth isLoading={loading} disabled={(payMode === 'card' && !stripe) || loading}>
+          {loading
+            ? 'Traitement en cours…'
+            : payMode === 'account'
+              ? `Porter ${fmt(displayTotal, displayCurrency)} à mon compte`
+              : `Payer ${fmt(displayTotal, displayCurrency)}`}
         </Button>
       </div>
 

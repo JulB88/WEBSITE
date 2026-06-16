@@ -1,8 +1,16 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useI18n } from '@/lib/i18n'
 import Badge from '@/components/ui/Badge'
+
+interface CreditStatus {
+  onAccountEnabled: boolean
+  creditLimit: number
+  outstanding: number
+  available: number
+}
 
 interface Order {
   id: string
@@ -41,6 +49,15 @@ const statusColors: Record<string, 'default' | 'primary' | 'success' | 'warning'
 
 export default function AccountClient({ user, totalOrders }: Props) {
   const { t } = useI18n()
+  const [credit, setCredit] = useState<CreditStatus | null>(null)
+
+  useEffect(() => {
+    if (!user.businessCustomer) return
+    fetch('/api/account/credit')
+      .then((r) => r.json())
+      .then((d) => { if (d.onAccountEnabled) setCredit(d) })
+      .catch(() => {})
+  }, [user.businessCustomer])
 
   return (
     <div className="container py-8">
@@ -120,6 +137,41 @@ export default function AccountClient({ user, totalOrders }: Props) {
                     <span className="text-sm font-medium text-amber-900">{user.businessCustomer.priceList.name}</span>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Crédit — achats au compte */}
+          {credit && (
+            <div className="card mt-4 border-blue-200 bg-blue-50">
+              <h3 className="font-semibold text-blue-900 mb-4">🧾 Compte client</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-blue-700">Limite de crédit</span>
+                  <span className="text-sm font-medium text-blue-900">{credit.creditLimit.toFixed(2)} $</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-blue-700">Solde à payer</span>
+                  <span className={`text-sm font-bold ${credit.outstanding > 0 ? 'text-red-600' : 'text-blue-900'}`}>
+                    {credit.outstanding.toFixed(2)} $
+                  </span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-blue-200">
+                  <span className="text-sm text-blue-700">Crédit disponible</span>
+                  <span className="text-sm font-bold text-green-700">{credit.available.toFixed(2)} $</span>
+                </div>
+                {/* Barre de progression d'utilisation du crédit */}
+                <div className="mt-2">
+                  <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${credit.outstanding / credit.creditLimit > 0.85 ? 'bg-red-500' : 'bg-blue-500'}`}
+                      style={{ width: `${Math.min(100, (credit.outstanding / credit.creditLimit) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    {Math.round((credit.outstanding / credit.creditLimit) * 100)}% du crédit utilisé
+                  </p>
+                </div>
               </div>
             </div>
           )}

@@ -26,6 +26,17 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PaymentMethod {
+  CARD        // Payé par carte (Stripe) au moment de l'achat
+  ON_ACCOUNT  // Porté au compte client — facturé puis payé plus tard
+}
+
+enum PaymentStatus {
+  UNPAID   // Aucun paiement reçu
+  PARTIAL  // Paiement partiel reçu
+  PAID     // Payé en totalité
+}
+
 enum ProductSource {
   BC      // Imported from Business Central
   MANUAL  // Created manually via the admin dashboard
@@ -101,12 +112,16 @@ model BusinessCustomer {
   /// When no customerNo: "new_request" | "existing_unknown" | null
   accountRequestType String?
   discountPercent    Float       @default(0)
+  /// Limite de crédit pour les achats au compte. 0 = achats au compte interdits.
+  /// Le solde impayé (commandes ON_ACCOUNT non payées) ne peut pas dépasser cette limite.
+  creditLimit        Float       @default(0)
   priceListId        String?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
   user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   priceList          PriceList?  @relation(fields: [priceListId], references: [id])
   orders             Order[]
+  statements         AccountStatement[]
 }
 
 // ─── Pricing ─────────────────────────────────────────────────────────────────
@@ -212,15 +227,27 @@ model Order {
   totalAmount           Float
   stripePaymentIntentId String?           @unique
   bcSalesOrderNo        String?
+  // ─── Facturation au compte ───
+  paymentMethod         PaymentMethod     @default(CARD)
+  paymentStatus         PaymentStatus     @default(UNPAID)
+  /// Somme des paiements enregistrés (table Payment)
+  paidAmount            Float             @default(0)
+  /// Numéro de facture (généré à la facturation au compte ou à l'achat carte)
+  invoiceNo             String?
+  /// Date de facturation au compte (null = pas encore facturée)
+  invoicedAt            DateTime?
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
   user                  User              @relation(fields: [userId], references: [id])
   businessCustomer      BusinessCustomer? @relation(fields: [businessCustomerId], references: [id])
   orderItems            OrderItem[]
+  payments              Payment[]
 
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([paymentMethod, paymentStatus])
+  @@index([businessCustomerId])
 }
 
 model OrderItem {
@@ -231,6 +258,47 @@ model OrderItem {
   unitPrice Float
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+}
+
+// ─── Paiements (confirmations manuelles sur commandes au compte) ─────────────
+
+model Payment {
+  id           String   @id @default(cuid())
+  orderId      String
+  /// Montant reçu (peut être partiel)
+  amount       Float
+  /// Mode de paiement : "cheque" | "virement" | "carte" | "comptant" | "autre"
+  method       String   @default("autre")
+  /// Note libre (n° de chèque, référence de virement…)
+  note         String?
+  /// Email du membre du personnel qui a enregistré le paiement
+  recordedBy   String?
+  createdAt    DateTime @default(now())
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+// ─── États de compte mensuels ────────────────────────────────────────────────
+
+model AccountStatement {
+  id                 String           @id @default(cuid())
+  businessCustomerId String
+  /// Période couverte : "2026-06" (année-mois)
+  period             String
+  /// Total facturé au compte durant la période
+  totalBilled        Float
+  /// Total des paiements reçus durant la période
+  totalPaid          Float
+  /// Solde impayé au moment de la génération
+  balance            Float
+  sentAt             DateTime?
+  createdAt          DateTime         @default(now())
+  businessCustomer   BusinessCustomer @relation(fields: [businessCustomerId], references: [id], onDelete: Cascade)
+
+  @@unique([businessCustomerId, period])
+  @@index([period])
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────
