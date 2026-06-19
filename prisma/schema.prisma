@@ -310,6 +310,32 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// ─── Modèles de courriels & workflows ────────────────────────────────────────
+
+// Un modèle de courriel éditable (sujet + corps HTML avec variables {{...}}).
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  /// Clé système pour les modèles par défaut (null = créé par l'utilisateur)
+  systemKey String?  @unique
+  name      String
+  subject   String
+  bodyHtml  String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  triggers  EmailTrigger[]
+}
+
+// Un déclencheur : à quel événement système on envoie quel modèle.
+model EmailTrigger {
+  id         String         @id @default(cuid())
+  /// Événement système : purchase_invoice | final_invoice | payment_confirmation | monthly_statement
+  event      String         @unique
+  templateId String?
+  enabled    Boolean        @default(true)
+  updatedAt  DateTime       @updatedAt
+  template   EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+}
+
 // ─── Stripe Webhook Deduplication ────────────────────────────────────────────
 // Prevents the same Stripe event from being processed more than once.
 // Stripe guarantees at-least-once delivery — we enforce exactly-once here.

@@ -163,10 +163,10 @@ export class BillingService {
       data: { invoicedAt: new Date(), invoiceNo },
     })
 
-    // Facture finale par courriel (non bloquant pour l'appelant si échec)
+    // Facture finale par courriel (workflow final_invoice — non bloquant)
     let emailSent = false
     try {
-      emailSent = await EmailService.sendInvoice(order.user.email, {
+      emailSent = await EmailService.dispatchInvoice('final_invoice', order.user.email, {
         invoiceNo,
         orderId: order.id,
         date: new Date(),
@@ -245,7 +245,44 @@ export class BillingService {
       }),
     ])
 
-    return { payment, paidAmount: newPaid, paymentStatus: newStatus, remaining: Math.round((order.totalAmount - newPaid) * 100) / 100 }
+    const remainingAfter = Math.round((order.totalAmount - newPaid) * 100) / 100
+
+    // Confirmation de paiement par courriel (workflow payment_confirmation — non bloquant)
+    this.sendPaymentConfirmation(orderId, amount, newPaid, remainingAfter, order.totalAmount, newStatus)
+      .catch((err) => console.error('[billing] Confirmation de paiement échouée (non-fatal):', err))
+
+    return { payment, paidAmount: newPaid, paymentStatus: newStatus, remaining: remainingAfter }
+  }
+
+  /** Envoie la confirmation de paiement au client (workflow payment_confirmation). */
+  private static async sendPaymentConfirmation(
+    orderId: string,
+    amountPaid: number,
+    paidAmount: number,
+    remaining: number,
+    total: number,
+    paymentStatus: 'PARTIAL' | 'PAID'
+  ): Promise<void> {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        invoiceNo: true,
+        user: { select: { name: true, email: true } },
+        businessCustomer: { select: { companyName: true } },
+      },
+    })
+    if (!order?.user.email) return
+
+    await EmailService.dispatchPayment(order.user.email, {
+      invoiceNo:    order.invoiceNo ?? `CMD-${orderId.slice(-6).toUpperCase()}`,
+      customerName: order.user.name ?? order.user.email,
+      companyName:  order.businessCustomer?.companyName,
+      amountPaid,
+      total,
+      paidAmount,
+      remaining,
+      paymentStatus,
+    })
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -347,7 +384,7 @@ export class BillingService {
           creditLimit: customer.creditLimit,
         }
 
-        const emailSent = await EmailService.sendStatement(customer.user.email, statementData)
+        const emailSent = await EmailService.dispatchStatement(customer.user.email, statementData)
 
         await prisma.accountStatement.create({
           data: {
@@ -420,6 +457,6 @@ export class BillingService {
       isFinal: false,
     }
 
-    return EmailService.sendInvoice(order.user.email, data)
+    return EmailService.dispatchInvoice('purchase_invoice', order.user.email, data)
   }
 }
