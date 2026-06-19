@@ -1,6 +1,15 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import RichEmailEditor from '@/components/dashboard/RichEmailEditor'
+
+const VAR_LABELS: Record<string, string> = {
+  companyName: 'Nom entreprise', customerName: 'Nom client', invoiceNo: 'N° facture',
+  orderId: 'N° commande', date: 'Date', total: 'Total', paymentMethodLabel: 'Mode de paiement',
+  amountPaid: 'Montant reçu', paidAmount: 'Déjà payé', remaining: 'Solde restant',
+  statusLabel: 'Statut', period: 'Période', totalBilled: 'Total facturé',
+  totalPaid: 'Total payé', balance: 'Solde', creditLimit: 'Limite de crédit',
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -264,7 +273,7 @@ function TemplateEditor({ template, events, triggers, onClose, onSaved, onFlash 
   const [body, setBody]       = useState(template.bodyHtml)
   const [saving, setSaving]   = useState(false)
   const [testing, setTesting] = useState(false)
-  const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const subjectRef = useRef<HTMLInputElement>(null)
 
   // Contexte d'aperçu : événement lié à ce modèle, ou le 1er
   const boundEvent = triggers.find((t) => t.templateId === template.id)?.event
@@ -273,14 +282,19 @@ function TemplateEditor({ template, events, triggers, onClose, onSaved, onFlash 
   const [previewEvent, setPreviewEvent] = useState(boundEvent ?? 'purchase_invoice')
 
   const currentEvent = events.find((e) => e.event === previewEvent)
+  const allVars    = currentEvent?.vars ?? []
+  const inlineVars = allVars.filter((v) => !v.endsWith('_table'))
+  const blockVars  = allVars.filter((v) => v.endsWith('_table'))
 
-  function insertVar(v: string) {
-    const ta = bodyRef.current
+  // Insère une donnée dans le sujet (au curseur)
+  function insertSubjectVar(v: string) {
+    const input = subjectRef.current
     const token = `{{${v}}}`
-    if (!ta) { setBody((b) => b + token); return }
-    const start = ta.selectionStart, end = ta.selectionEnd
-    setBody((b) => b.slice(0, start) + token + b.slice(end))
-    requestAnimationFrame(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = start + token.length })
+    if (!input) { setSubject((s) => s + token); return }
+    const start = input.selectionStart ?? subject.length
+    const end   = input.selectionEnd ?? subject.length
+    setSubject((s) => s.slice(0, start) + token + s.slice(end))
+    requestAnimationFrame(() => { input.focus(); input.selectionStart = input.selectionEnd = start + token.length })
   }
 
   async function save() {
@@ -330,27 +344,28 @@ function TemplateEditor({ template, events, triggers, onClose, onSaved, onFlash 
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sujet</label>
-              <input value={subject} onChange={(e) => setSubject(e.target.value)}
+              <input ref={subjectRef} value={subject} onChange={(e) => setSubject(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              {inlineVars.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  <span className="text-xs text-gray-400 mr-1 self-center">Insérer :</span>
+                  {inlineVars.map((v) => (
+                    <button key={v} type="button"
+                      onMouseDown={(e) => { e.preventDefault(); insertSubjectVar(v) }}
+                      className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-indigo-100 hover:text-indigo-700">
+                      + {VAR_LABELS[v] ?? v}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contenu (HTML)</label>
-              <textarea ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} rows={14}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              <p className="text-xs text-gray-400 mt-1">L'en-tête et le pied DSF sont ajoutés automatiquement.</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">
-                Variables disponibles <span className="text-gray-400">(clique pour insérer)</span> :
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contenu du courriel</label>
+              <RichEmailEditor value={body} onChange={setBody} inlineVars={inlineVars} blockVars={blockVars} />
+              <p className="text-xs text-gray-400 mt-1">
+                L'en-tête et le pied DSF sont ajoutés automatiquement. Utilise « + Donnée » pour insérer
+                des informations qui se remplissent toutes seules à l'envoi.
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {(currentEvent?.vars ?? []).map((v) => (
-                  <button key={v} onClick={() => insertVar(v)}
-                    className="text-xs font-mono px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-                    {`{{${v}}}`}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
 
