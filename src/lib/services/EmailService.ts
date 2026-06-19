@@ -103,7 +103,11 @@ export const EMAIL_EVENTS: EmailEventMeta[] = [
 ]
 
 // Variables dont la valeur est du HTML de confiance (non échappée)
-const RAW_VARS = new Set(['lines_table', 'statement_table'])
+const RAW_VARS = new Set(['lines_table', 'statement_table', 'content'])
+
+// Modèle spécial de mise en page (entête + pied), partagé par tous les courriels
+export const EMAIL_LAYOUT_KEY = 'email_layout'
+export const EMAIL_LAYOUT_VARS = { inline: ['storeName', 'year'], block: ['content'] }
 
 const CURRENCY = (n: number) => `${n.toFixed(2)} $`
 
@@ -170,6 +174,22 @@ const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   },
 ]
 
+// Mise en page par défaut (entête + pied) — {{content}} = corps du courriel.
+// Éditable depuis /dashboard/emails. Encadré ensuite par htmlShell() (non éditable).
+const DEFAULT_LAYOUT_BODY = `<div style="max-width:640px;margin:0 auto;padding:24px 16px;">
+  <div style="height:4px;background:#e51937;"></div>
+  <div style="background:#1f2232;padding:18px 24px;">
+    <span style="color:#ffffff;font-size:20px;font-weight:900;letter-spacing:.08em;">DSF</span>
+    <span style="color:#9ca3af;font-size:12px;margin-left:8px;letter-spacing:.06em;">DISTRIBUTION</span>
+  </div>
+  <div style="background:#ffffff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none;">
+    {{content}}
+  </div>
+  <p style="text-align:center;font-size:11px;color:#9ca3af;margin-top:16px;">
+    © {{year}} {{storeName}} — Ce courriel a été généré automatiquement, merci de ne pas y répondre.
+  </p>
+</div>`
+
 // ──────────────────────────────────────────────────────────────────────────────
 
 export class EmailService {
@@ -220,6 +240,28 @@ export class EmailService {
         create: { event: d.event, templateId: tpl.id, enabled: true },
       })
     }
+
+    // Modèle de mise en page (entête + pied) — pas de déclencheur, utilisé partout
+    await prisma.emailTemplate.upsert({
+      where:  { systemKey: EMAIL_LAYOUT_KEY },
+      update: {},
+      create: { systemKey: EMAIL_LAYOUT_KEY, name: 'Entête et pied de page', subject: 'Mise en page', bodyHtml: DEFAULT_LAYOUT_BODY },
+    })
+  }
+
+  // ─── Mise en page (entête + pied) ─────────────────────────────────────────────
+
+  /** Encadre le corps d'un courriel avec le modèle de mise en page éditable. */
+  static async wrapInLayout(innerHtml: string): Promise<string> {
+    let layout = await prisma.emailTemplate.findUnique({ where: { systemKey: EMAIL_LAYOUT_KEY } })
+    if (!layout) {
+      await this.seedDefaults()
+      layout = await prisma.emailTemplate.findUnique({ where: { systemKey: EMAIL_LAYOUT_KEY } })
+    }
+    const storeName = (await SettingsService.get('store_name')) || 'DSF Distribution'
+    const year = String(new Date().getFullYear())
+    const filled = renderTemplate(layout?.bodyHtml ?? DEFAULT_LAYOUT_BODY, { content: innerHtml, year, storeName })
+    return htmlShell(filled)
   }
 
   // ─── Dispatch piloté par les déclencheurs ────────────────────────────────────
@@ -250,7 +292,7 @@ export class EmailService {
 
     const subject = renderTemplate(trigger.template.subject, vars)
     const inner   = renderTemplate(trigger.template.bodyHtml, vars)
-    return this.send(to, subject, baseLayout(inner))
+    return this.send(to, subject, await this.wrapInLayout(inner))
   }
 
   // ─── Builders de variables → dispatch ────────────────────────────────────────
@@ -316,13 +358,22 @@ export class EmailService {
 
   // ─── Rendu (pour aperçu / test serveur) ──────────────────────────────────────
 
-  /** Rend un modèle complet (sujet + corps encadré) avec des données d'exemple. */
-  static renderPreview(subject: string, bodyHtml: string, event: string): { subject: string; html: string } {
+  /** Aperçu d'un modèle d'événement (corps encadré par la mise en page enregistrée). */
+  static async renderEmailPreview(subject: string, bodyHtml: string, event: string): Promise<{ subject: string; html: string }> {
     const vars = sampleVars(event)
-    return {
-      subject: renderTemplate(subject, vars),
-      html:    baseLayout(renderTemplate(bodyHtml, vars)),
-    }
+    const inner = renderTemplate(bodyHtml, vars)
+    return { subject: renderTemplate(subject, vars), html: await this.wrapInLayout(inner) }
+  }
+
+  /** Aperçu du modèle de mise en page lui-même, avec un corps de courriel d'exemple. */
+  static renderLayoutPreview(layoutBody: string): { subject: string; html: string } {
+    const sampleInner = renderTemplate(DEFAULT_TEMPLATES[0].body, sampleVars('purchase_invoice'))
+    const filled = renderTemplate(layoutBody, {
+      content: sampleInner,
+      year: String(new Date().getFullYear()),
+      storeName: 'DSF Distribution',
+    })
+    return { subject: 'Aperçu — Entête et pied de page', html: htmlShell(filled) }
   }
 }
 
@@ -427,23 +478,12 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function baseLayout(content: string): string {
+/** Enveloppe HTML minimale et non éditable (doctype + body). Le visible vit dans le layout. */
+function htmlShell(inner: string): string {
   return `<!DOCTYPE html>
 <html lang="fr">
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
-  <div style="max-width:640px;margin:0 auto;padding:24px 16px;">
-    <div style="height:4px;background:#e51937;"></div>
-    <div style="background:#1f2232;padding:18px 24px;">
-      <span style="color:#fff;font-size:20px;font-weight:900;letter-spacing:.08em;">DSF</span>
-      <span style="color:#9ca3af;font-size:12px;margin-left:8px;letter-spacing:.06em;">DISTRIBUTION</span>
-    </div>
-    <div style="background:#ffffff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none;">
-      ${content}
-    </div>
-    <p style="text-align:center;font-size:11px;color:#9ca3af;margin-top:16px;">
-      DSF Distribution — Ce courriel a été généré automatiquement, merci de ne pas y répondre.
-    </p>
-  </div>
+${inner}
 </body>
 </html>`
 }

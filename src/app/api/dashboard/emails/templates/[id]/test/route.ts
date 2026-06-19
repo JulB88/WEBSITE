@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
-import { EmailService, EMAIL_EVENTS } from '@/lib/services'
+import { EmailService, EMAIL_EVENTS, EMAIL_LAYOUT_KEY } from '@/lib/services'
 
 type Context = { params: Promise<{ id: string }> }
 
@@ -26,18 +26,28 @@ export async function POST(req: NextRequest, { params }: Context) {
   const template = await prisma.emailTemplate.findUnique({ where: { id } })
   if (!template) return NextResponse.json({ error: 'Modèle introuvable.' }, { status: 404 })
 
-  // Déterminer l'événement (pour les données d'exemple)
-  const body = await req.json().catch(() => ({}))
-  let event: string | undefined = typeof body.event === 'string' ? body.event : undefined
-  if (!event) {
-    const trig = await prisma.emailTrigger.findFirst({ where: { templateId: id } })
-    event = trig?.event
-      ?? (template.systemKey?.replace('default_', ''))
-      ?? 'purchase_invoice'
+  // Cas spécial : modèle de mise en page (entête + pied)
+  let subject: string
+  let html: string
+  if (template.systemKey === EMAIL_LAYOUT_KEY) {
+    const r = EmailService.renderLayoutPreview(template.bodyHtml)
+    subject = r.subject
+    html = r.html
+  } else {
+    // Déterminer l'événement (pour les données d'exemple)
+    const body = await req.json().catch(() => ({}))
+    let event: string | undefined = typeof body.event === 'string' ? body.event : undefined
+    if (!event) {
+      const trig = await prisma.emailTrigger.findFirst({ where: { templateId: id } })
+      event = trig?.event
+        ?? (template.systemKey?.replace('default_', ''))
+        ?? 'purchase_invoice'
+    }
+    if (!EMAIL_EVENTS.some((e) => e.event === event)) event = 'purchase_invoice'
+    const r = await EmailService.renderEmailPreview(template.subject, template.bodyHtml, event)
+    subject = r.subject
+    html = r.html
   }
-  if (!EMAIL_EVENTS.some((e) => e.event === event)) event = 'purchase_invoice'
-
-  const { subject, html } = EmailService.renderPreview(template.subject, template.bodyHtml, event)
 
   try {
     const sent = await EmailService.send(to, `[TEST] ${subject}`, html)

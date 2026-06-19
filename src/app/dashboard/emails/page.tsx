@@ -89,16 +89,39 @@ function renderTemplate(tpl: string, vars: Record<string, string>, raw: Set<stri
   })
 }
 
-function previewHtml(bodyHtml: string, event: string): string {
+const EMAIL_LAYOUT_KEY = 'email_layout'
+
+// Corps d'exemple inséré dans l'aperçu de la mise en page
+const SAMPLE_INNER = `<h2 style="color:#1f2232;margin:0 0 8px;">Confirmation d'achat</h2>
+<p style="color:#374151;font-size:14px;">Construction Tremblay inc.,<br/>merci pour votre commande.</p>${SAMPLE_LINES_TABLE}`
+
+const LAYOUT_FALLBACK = `<div style="max-width:640px;margin:0 auto;padding:24px 16px;">
+  <div style="height:4px;background:#e51937;"></div>
+  <div style="background:#1f2232;padding:18px 24px;"><span style="color:#fff;font-size:20px;font-weight:900;letter-spacing:.08em;">DSF</span><span style="color:#9ca3af;font-size:12px;margin-left:8px;">DISTRIBUTION</span></div>
+  <div style="background:#fff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none;">{{content}}</div>
+  <p style="text-align:center;font-size:11px;color:#9ca3af;margin-top:16px;">© {{year}} {{storeName}} — Ce courriel a été généré automatiquement.</p>
+</div>`
+
+/** Encadre un corps de courriel avec la mise en page (entête + pied). */
+function wrapWithLayout(layoutBody: string, inner: string): string {
+  const year = String(new Date().getFullYear())
+  const filled = (layoutBody || LAYOUT_FALLBACK)
+    .split('{{content}}').join(inner)
+    .replace(/\{\{\s*year\s*\}\}/g, year)
+    .replace(/\{\{\s*storeName\s*\}\}/g, 'DSF Distribution')
+  return `<div style="background:#f3f4f6;font-family:Arial,sans-serif;padding:16px;">${filled}</div>`
+}
+
+/** Aperçu d'un modèle d'événement, encadré par la mise en page. */
+function previewHtml(bodyHtml: string, event: string, layoutBody: string): string {
   const { vars, raw } = sampleVarsFor(event)
   const inner = renderTemplate(bodyHtml, vars, raw)
-  return `<div style="background:#f3f4f6;font-family:Arial,sans-serif;padding:16px;">
-    <div style="max-width:640px;margin:0 auto;">
-      <div style="height:4px;background:#e51937;"></div>
-      <div style="background:#1f2232;padding:14px 20px;"><span style="color:#fff;font-size:18px;font-weight:900;letter-spacing:.08em;">DSF</span><span style="color:#9ca3af;font-size:11px;margin-left:8px;">DISTRIBUTION</span></div>
-      <div style="background:#fff;padding:24px 20px;border:1px solid #e5e7eb;border-top:none;">${inner}</div>
-    </div>
-  </div>`
+  return wrapWithLayout(layoutBody, inner)
+}
+
+/** Aperçu du modèle de mise en page lui-même (avec un corps d'exemple). */
+function previewLayoutHtml(layoutBody: string): string {
+  return wrapWithLayout(layoutBody, SAMPLE_INNER)
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -159,6 +182,10 @@ export default function EmailsPage() {
 
   if (loading) return <div className="p-8 text-gray-400">Chargement…</div>
 
+  const layout = templates.find((t) => t.systemKey === EMAIL_LAYOUT_KEY)
+  const eventTemplates = templates.filter((t) => t.systemKey !== EMAIL_LAYOUT_KEY)
+  const layoutBody = layout?.bodyHtml ?? ''
+
   return (
     <div className="p-8 max-w-5xl">
       <div className="mb-6">
@@ -198,7 +225,7 @@ export default function EmailsPage() {
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">— Aucun (ne pas envoyer) —</option>
-                  {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  {eventTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
                 <button
                   type="button" role="switch" aria-checked={enabled}
@@ -226,7 +253,7 @@ export default function EmailsPage() {
         </div>
 
         <div className="divide-y divide-gray-50">
-          {templates.map((t) => (
+          {eventTemplates.map((t) => (
             <div key={t.id} className="flex items-center gap-4 py-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -244,11 +271,32 @@ export default function EmailsPage() {
         </div>
       </section>
 
+      {/* ── Entête et pied de page (mise en page partagée) ── */}
+      {layout && (
+        <section className="bg-white rounded-xl border border-gray-200 p-6 mt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">🖼️</span>
+              <div>
+                <h2 className="font-semibold text-gray-900">Entête et pied de page</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  La bannière du haut et le pied de page appliqués à <strong>tous</strong> les courriels.
+                </p>
+              </div>
+            </div>
+            <button onClick={() => setEditing(layout)} className="text-indigo-600 hover:underline text-sm font-medium">
+              Modifier
+            </button>
+          </div>
+        </section>
+      )}
+
       {editing && (
         <TemplateEditor
           template={editing}
           events={events}
           triggers={triggers}
+          layoutBody={layoutBody}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load() }}
           onFlash={flash}
@@ -260,14 +308,16 @@ export default function EmailsPage() {
 
 // ─── Éditeur de modèle ────────────────────────────────────────────────────────
 
-function TemplateEditor({ template, events, triggers, onClose, onSaved, onFlash }: {
+function TemplateEditor({ template, events, triggers, layoutBody, onClose, onSaved, onFlash }: {
   template: Template
   events: EventMeta[]
   triggers: Trigger[]
+  layoutBody: string
   onClose: () => void
   onSaved: () => void
   onFlash: (m: string) => void
 }) {
+  const isLayout = template.systemKey === EMAIL_LAYOUT_KEY
   const [name, setName]       = useState(template.name)
   const [subject, setSubject] = useState(template.subject)
   const [body, setBody]       = useState(template.bodyHtml)
@@ -282,9 +332,10 @@ function TemplateEditor({ template, events, triggers, onClose, onSaved, onFlash 
   const [previewEvent, setPreviewEvent] = useState(boundEvent ?? 'purchase_invoice')
 
   const currentEvent = events.find((e) => e.event === previewEvent)
-  const allVars    = currentEvent?.vars ?? []
-  const inlineVars = allVars.filter((v) => !v.endsWith('_table'))
-  const blockVars  = allVars.filter((v) => v.endsWith('_table'))
+  // Le modèle de mise en page a ses propres variables (entête/pied)
+  const allVars    = isLayout ? ['storeName', 'year', 'content'] : (currentEvent?.vars ?? [])
+  const inlineVars = isLayout ? ['storeName', 'year'] : allVars.filter((v) => !v.endsWith('_table'))
+  const blockVars  = isLayout ? ['content']           : allVars.filter((v) => v.endsWith('_table'))
 
   // Insère une donnée dans le sujet (au curseur)
   function insertSubjectVar(v: string) {
@@ -330,7 +381,7 @@ function TemplateEditor({ template, events, triggers, onClose, onSaved, onFlash 
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold">Modifier le modèle</h2>
+          <h2 className="text-lg font-semibold">{isLayout ? "Modifier l'entête et le pied de page" : 'Modifier le modèle'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
         </div>
 
@@ -339,32 +390,37 @@ function TemplateEditor({ template, events, triggers, onClose, onSaved, onFlash 
           <div className="p-6 space-y-4 border-r border-gray-100">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nom du modèle</label>
-              <input value={name} onChange={(e) => setName(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input value={name} onChange={(e) => setName(e.target.value)} readOnly={isLayout}
+                className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${isLayout ? 'bg-gray-50 text-gray-500' : ''}`} />
             </div>
+            {!isLayout && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sujet</label>
+                <input ref={subjectRef} value={subject} onChange={(e) => setSubject(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                {inlineVars.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    <span className="text-xs text-gray-400 mr-1 self-center">Insérer :</span>
+                    {inlineVars.map((v) => (
+                      <button key={v} type="button"
+                        onMouseDown={(e) => { e.preventDefault(); insertSubjectVar(v) }}
+                        className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-indigo-100 hover:text-indigo-700">
+                        + {VAR_LABELS[v] ?? v}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Sujet</label>
-              <input ref={subjectRef} value={subject} onChange={(e) => setSubject(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              {inlineVars.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  <span className="text-xs text-gray-400 mr-1 self-center">Insérer :</span>
-                  {inlineVars.map((v) => (
-                    <button key={v} type="button"
-                      onMouseDown={(e) => { e.preventDefault(); insertSubjectVar(v) }}
-                      className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-indigo-100 hover:text-indigo-700">
-                      + {VAR_LABELS[v] ?? v}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contenu du courriel</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {isLayout ? 'Entête et pied de page' : 'Contenu du courriel'}
+              </label>
               <RichEmailEditor value={body} onChange={setBody} inlineVars={inlineVars} blockVars={blockVars} />
               <p className="text-xs text-gray-400 mt-1">
-                L'en-tête et le pied DSF sont ajoutés automatiquement. Utilise « + Donnée » pour insérer
-                des informations qui se remplissent toutes seules à l'envoi.
+                {isLayout
+                  ? "Le bloc « Contenu du courriel » sera remplacé par chaque message. Modifie autour : bannière, logo, pied de page."
+                  : "L'en-tête et le pied DSF sont ajoutés automatiquement. Utilise « + Donnée » pour insérer des informations qui se remplissent toutes seules à l'envoi."}
               </p>
             </div>
           </div>
@@ -373,15 +429,19 @@ function TemplateEditor({ template, events, triggers, onClose, onSaved, onFlash 
           <div className="p-6 bg-gray-50">
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-gray-700">Aperçu</label>
-              <select value={previewEvent} onChange={(e) => setPreviewEvent(e.target.value)}
-                className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                {events.map((e) => <option key={e.event} value={e.event}>{e.label}</option>)}
-              </select>
+              {!isLayout && (
+                <select value={previewEvent} onChange={(e) => setPreviewEvent(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  {events.map((e) => <option key={e.event} value={e.event}>{e.label}</option>)}
+                </select>
+              )}
             </div>
-            <p className="text-xs text-gray-400 mb-2">Sujet : {renderTemplate(subject, sampleVarsFor(previewEvent).vars, new Set())}</p>
+            {!isLayout && (
+              <p className="text-xs text-gray-400 mb-2">Sujet : {renderTemplate(subject, sampleVarsFor(previewEvent).vars, new Set())}</p>
+            )}
             <iframe
               title="Aperçu"
-              srcDoc={previewHtml(body, previewEvent)}
+              srcDoc={isLayout ? previewLayoutHtml(body) : previewHtml(body, previewEvent, layoutBody)}
               className="w-full h-[380px] bg-white border border-gray-200 rounded-lg"
             />
           </div>
