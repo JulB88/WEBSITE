@@ -266,6 +266,8 @@ export default function SettingsPage() {
   const [stripeDetail, setStripeDetail] = useState('')
   const [bcStatus, setBcStatus] = useState<TestStatus>('idle')
   const [bcDetail, setBcDetail] = useState('')
+  const [emailStatus, setEmailStatus] = useState<TestStatus>('idle')
+  const [emailDetail, setEmailDetail] = useState('')
   const [syncMsg, setSyncMsg]   = useState('')
 
   useEffect(() => {
@@ -312,6 +314,16 @@ export default function SettingsPage() {
       setBcStatus(d.ok ? 'ok' : 'error')
       setBcDetail(d.message ?? (d.ok ? 'Connecté' : 'Échec'))
     } catch { setBcStatus('error') }
+  }
+
+  async function testEmail() {
+    setEmailStatus('loading'); setEmailDetail('')
+    try {
+      const res = await fetch('/api/admin/settings/test-email', { method: 'POST' })
+      const d   = await res.json()
+      setEmailStatus(d.ok ? 'ok' : 'error')
+      setEmailDetail(d.message ?? (d.ok ? 'Envoyé' : 'Échec'))
+    } catch { setEmailStatus('error'); setEmailDetail('Erreur réseau') }
   }
 
   if (loading) return <div className="p-8 text-gray-400">Chargement…</div>
@@ -415,6 +427,14 @@ export default function SettingsPage() {
         {canEditCredentials && (
           <SectionCard icon="📧" title="Courriels transactionnels (SMTP)"
             subtitle="Factures, confirmations de paiement et états de compte — envoyés depuis ta boîte courriel">
+            <div className="flex items-center gap-3 mb-4">
+              <StatusBadge status={emailStatus} okMsg={emailDetail || 'Envoyé'} errMsg={emailDetail || 'Échec'} />
+              <button onClick={testEmail} disabled={emailStatus === 'loading'}
+                className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+                Tester l'envoi
+              </button>
+              <span className="text-xs text-gray-400">Sauvegarde d'abord, puis teste — un courriel est envoyé à ton adresse.</span>
+            </div>
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="sm:col-span-2">
