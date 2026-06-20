@@ -48,6 +48,20 @@ enum ProductStatus {
   INACTIVE  // All required fields present, hidden from store by choice
 }
 
+enum AccountType {
+  ASSET      // Actif
+  LIABILITY  // Passif
+  EQUITY     // Capitaux propres
+  REVENUE    // Produits
+  EXPENSE    // Charges
+}
+
+enum FiscalPeriodStatus {
+  OPEN    // Écritures permises
+  CLOSED  // Fermé (réouvrable)
+  LOCKED  // Verrouillé définitivement
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 model User {
@@ -346,4 +360,106 @@ model StripeWebhookEvent {
   processedAt DateTime @default(now())
 
   @@index([processedAt])
+}
+
+// ─── Comptabilité — Fondations configurables (Phase 1) ───────────────────────
+
+// Plan comptable éditable (chart of accounts).
+model LedgerAccount {
+  id          String      @id @default(cuid())
+  code        String      @unique      // ex. "1100"
+  name        String                    // ex. "Comptes clients"
+  type        AccountType
+  parentId    String?
+  parent      LedgerAccount?  @relation("AccountTree", fields: [parentId], references: [id])
+  children    LedgerAccount[] @relation("AccountTree")
+  description String?
+  isActive    Boolean     @default(true)
+  /// Compte par défaut (seedé, référencé par les mappages) — non supprimable
+  isSystem    Boolean     @default(false)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  mappings        AccountMapping[]
+  taxCollectedFor TaxCode[] @relation("TaxCollected")
+  taxPaidFor      TaxCode[] @relation("TaxPaid")
+
+  @@index([type])
+  @@index([parentId])
+}
+
+// Mappage « rôle système → compte » (quel compte poster pour chaque type de transaction).
+model AccountMapping {
+  id        String         @id @default(cuid())
+  /// SALES_REVENUE | ACCOUNTS_RECEIVABLE | CASH | ACCOUNTS_PAYABLE | DEFAULT_EXPENSE | COGS | ROUNDING | RETAINED_EARNINGS …
+  key       String         @unique
+  label     String
+  accountId String?
+  account   LedgerAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  updatedAt DateTime       @updatedAt
+}
+
+// Code de taxe configurable (TPS, TVQ, HST, TVA…).
+model TaxCode {
+  id                 String        @id @default(cuid())
+  code               String        @unique  // ex. "TPS"
+  name               String                   // ex. "Taxe sur les produits et services"
+  rate               Float                    // 0.05
+  jurisdiction       String?                  // "CA-QC"
+  registrationNumber String?                  // n° d'inscription
+  compound           Boolean       @default(false) // calculée sur (sous-total + taxes précédentes)
+  isActive           Boolean       @default(true)
+  isSystem           Boolean       @default(false)
+  sortOrder          Int           @default(0)
+  collectedAccountId String?                  // taxe perçue (passif)
+  paidAccountId      String?                  // CTI/RTI récupérable (actif)
+  collectedAccount   LedgerAccount? @relation("TaxCollected", fields: [collectedAccountId], references: [id], onDelete: SetNull)
+  paidAccount        LedgerAccount? @relation("TaxPaid", fields: [paidAccountId], references: [id], onDelete: SetNull)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+}
+
+// Devises et taux de change (multi-devise).
+model Currency {
+  code      String         @id          // "CAD", "USD"
+  symbol    String                       // "$"
+  name      String                       // "Dollar canadien"
+  isBase    Boolean        @default(false)
+  isActive  Boolean        @default(true)
+  rates     ExchangeRate[]
+}
+
+model ExchangeRate {
+  id           String   @id @default(cuid())
+  currencyCode String
+  currency     Currency @relation(fields: [currencyCode], references: [code], onDelete: Cascade)
+  /// Unités de devise de base pour 1 unité de cette devise
+  rate         Float
+  asOf         DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([currencyCode, asOf])
+}
+
+model FiscalYear {
+  id        String         @id @default(cuid())
+  name      String                       // "Exercice 2026"
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime       @default(now())
+  periods   FiscalPeriod[]
+}
+
+model FiscalPeriod {
+  id           String             @id @default(cuid())
+  fiscalYearId String
+  fiscalYear   FiscalYear         @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
+  name         String                       // "2026-06"
+  startDate    DateTime
+  endDate      DateTime
+  status       FiscalPeriodStatus @default(OPEN)
+
+  @@unique([fiscalYearId, name])
+  @@index([fiscalYearId])
 }

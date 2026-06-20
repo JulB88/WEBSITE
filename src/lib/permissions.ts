@@ -35,6 +35,8 @@ export type Permission =
   | 'pricelists:write'
   | 'settings:read'
   | 'settings:write'
+  | 'accounting:read'  // view accounting (ledger, reports, statements)
+  | 'accounting:write' // post entries, edit chart of accounts, tax codes, mappings
   | 'bc:sync'          // trigger BC product sync
 
 export const ROLE_META: Record<
@@ -82,6 +84,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'discounts:read', 'discounts:write',
     'pricelists:read', 'pricelists:write',
     'settings:read', 'settings:write',
+    'accounting:read', 'accounting:write',
     'bc:sync',
   ],
   ADMIN: [
@@ -92,6 +95,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'discounts:read', 'discounts:write',
     'pricelists:read', 'pricelists:write',
     'settings:read', 'settings:write',
+    'accounting:read', 'accounting:write',
     'bc:sync',
   ],
   MANAGER: [
@@ -101,6 +105,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'discounts:read', 'discounts:write',
     'pricelists:read', 'pricelists:write',
     'users:read',
+    'accounting:read',
     'bc:sync',
   ],
   CUSTOMER_SERVICE: [
@@ -169,5 +174,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'pricelists:write': 'Manage price lists',
   'settings:read': 'View settings',
   'settings:write': 'Edit settings',
+  'accounting:read': 'View accounting',
+  'accounting:write': 'Manage accounting',
   'bc:sync': 'Business Central sync',
 }

@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import AccountingConfig from '@/components/dashboard/AccountingConfig'
 
-type Tab = 'summary' | 'sales' | 'receipts' | 'tax' | 'aging' | 'journal' | 'trial'
+type Tab = 'summary' | 'sales' | 'receipts' | 'tax' | 'aging' | 'journal' | 'trial' | 'config'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'summary',  label: 'Sommaire' },
@@ -12,6 +13,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'aging',    label: 'Âge des comptes' },
   { key: 'journal',  label: 'Grand livre' },
   { key: 'trial',    label: 'Balance de vérification' },
+  { key: 'config',   label: '⚙ Paramètres' },
 ]
 
 const money = (n: number) => (n ?? 0).toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' $'
@@ -36,6 +38,7 @@ export default function AccountingPage() {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
+    if (tab === 'config') { setLoading(false); return } // le panneau de config gère ses données
     setLoading(true)
     try {
       const res = await fetch(`/api/dashboard/accounting?report=${tab}&from=${from}&to=${to}`)
@@ -64,7 +67,8 @@ export default function AccountingPage() {
         </p>
       </div>
 
-      {/* Période */}
+      {/* Période — masquée dans l'onglet Paramètres */}
+      {tab !== 'config' && (
       <div className="flex flex-wrap items-end gap-3 mb-5 bg-white border border-gray-200 rounded-xl p-4">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Du</label>
@@ -92,6 +96,7 @@ export default function AccountingPage() {
           {tab === 'aging' ? 'Solde en date d\'aujourd\'hui' : 'Selon la date de facturation'}
         </span>
       </div>
+      )}
 
       {/* Onglets */}
       <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-5">
@@ -105,7 +110,9 @@ export default function AccountingPage() {
         ))}
       </div>
 
-      {loading ? (
+      {tab === 'config' ? (
+        <AccountingConfig />
+      ) : loading ? (
         <div className="py-20 text-center text-gray-400">Chargement…</div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl p-6">

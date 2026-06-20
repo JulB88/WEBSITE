@@ -12,7 +12,7 @@ import { AccountingService, TaxService, CHART_OF_ACCOUNTS } from '@/lib/services
  */
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session || !hasPermission(session.user.role as Role, 'orders:read')) {
+  if (!session || !hasPermission(session.user.role as Role, 'accounting:read')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

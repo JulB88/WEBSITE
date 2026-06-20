@@ -18,7 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Overview',    href: '/dashboard',              icon: '📊' },
   { label: 'Orders',      href: '/dashboard/orders',        icon: '📦', permission: 'orders:read' },
   { label: 'Facturation', href: '/dashboard/billing',       icon: '🧾', permission: 'orders:read' },
-  { label: 'Comptabilité', href: '/dashboard/accounting',   icon: '📒', permission: 'orders:read' },
+  { label: 'Comptabilité', href: '/dashboard/accounting',   icon: '📒', permission: 'accounting:read' },
   { label: 'Courriels',   href: '/dashboard/emails',        icon: '📧', permission: 'settings:read' },
   { label: 'Marque',      href: '/dashboard/branding',      icon: '🎨', permission: 'settings:read' },
   { label: 'Customers',   href: '/dashboard/customers',     icon: '👥', permission: 'users:read' },

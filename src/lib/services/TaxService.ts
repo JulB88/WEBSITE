@@ -1,4 +1,5 @@
 import { SettingsService } from './SettingsService'
+import { prisma } from '@/lib/prisma'
 
 /**
  * TaxService — taxes de vente canadiennes (TPS/TVQ par défaut, Québec).
@@ -83,5 +84,59 @@ export class TaxService {
     return rates.included
       ? this.breakdownFromTotal(amount, rates)
       : this.breakdownFromSubtotal(amount, rates)
+  }
+
+  // ─── Codes de taxe configurables (multi-juridiction) ─────────────────────────
+
+  /**
+   * Lit les rates depuis les TaxCode actifs en BD si disponibles, sinon repli
+   * sur les réglages (tax_gst_rate / tax_qst_rate). Garde la rétrocompatibilité.
+   */
+  static async getEffectiveRates(): Promise<TaxRates> {
+    try {
+      const codes = await prisma.taxCode.findMany({ where: { isActive: true } })
+      if (codes.length > 0) {
+        // Mappe les codes connus (TPS→gst, TVQ→qst) ; fallback : somme par position
+        const gst = codes.find((c) => /TPS|GST/i.test(c.code))?.rate
+        const qst = codes.find((c) => /TVQ|QST/i.test(c.code))?.rate
+        const base = await this.getRates()
+        return {
+          ...base,
+          gstRate: gst ?? base.gstRate,
+          qstRate: qst ?? base.qstRate,
+        }
+      }
+    } catch {
+      // table absente / non seedée → réglages
+    }
+    return this.getRates()
+  }
+
+  /** Liste des codes de taxe actifs (pour l'UI et les rapports par code). */
+  static async getActiveTaxCodes() {
+    return prisma.taxCode.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    })
+  }
+
+  /**
+   * Ventile un total taxe incluse selon une liste de codes (non composés).
+   * total = sous-total × (1 + Σ taux). Le dernier code absorbe l'arrondi.
+   */
+  static breakdownByCodes(total: number, codes: { code: string; rate: number }[]): {
+    subtotal: number; taxes: { code: string; rate: number; amount: number }[]; total: number
+  } {
+    const sumRates = codes.reduce((s, c) => s + c.rate, 0)
+    const subtotal = this.round(total / (1 + sumRates))
+    let allocated = 0
+    const taxes = codes.map((c, i) => {
+      const amount = i === codes.length - 1
+        ? this.round(total - subtotal - allocated)
+        : this.round(subtotal * c.rate)
+      allocated += amount
+      return { code: c.code, rate: c.rate, amount }
+    })
+    return { subtotal, taxes, total: this.round(total) }
   }
 }
