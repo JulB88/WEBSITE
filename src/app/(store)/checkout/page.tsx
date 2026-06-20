@@ -181,7 +181,7 @@ function CheckoutForm() {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 0' }}>
         <p style={{ color: '#6b7280', marginBottom: '1rem' }}>Votre panier est vide.</p>
-        <Link href="/products" style={{ color: '#e51937', fontWeight: 600, textDecoration: 'none' }}>
+        <Link href="/products" style={{ color: 'var(--brand-primary)', fontWeight: 600, textDecoration: 'none' }}>
           Parcourir les produits
         </Link>
       </div>
@@ -196,7 +196,7 @@ function CheckoutForm() {
       {/* Left: billing + payment */}
       <div className="space-y-6">
         <div>
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232', marginBottom: '1.25rem' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--brand-dark)', marginBottom: '1.25rem' }}>
             Coordonnées de facturation
           </h2>
           <div className="space-y-4">
@@ -262,7 +262,7 @@ function CheckoutForm() {
         </div>
 
         <div>
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232', marginBottom: '1.25rem' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--brand-dark)', marginBottom: '1.25rem' }}>
             Paiement
           </h2>
 
@@ -284,9 +284,9 @@ function CheckoutForm() {
                     aria-pressed={active}
                     style={{
                       padding: '0.75rem 1rem',
-                      border: `2px solid ${active ? '#e51937' : '#d1d5db'}`,
-                      backgroundColor: disabled ? '#f3f4f6' : active ? '#fff5f6' : '#fff',
-                      color: disabled ? '#9ca3af' : active ? '#e51937' : '#6b7280',
+                      border: `2px solid ${active ? 'var(--brand-primary)' : '#d1d5db'}`,
+                      backgroundColor: disabled ? 'var(--brand-bg)' : active ? '#fff5f6' : '#fff',
+                      color: disabled ? '#9ca3af' : active ? 'var(--brand-primary)' : '#6b7280',
                       fontWeight: 700,
                       fontSize: '0.78rem',
                       textTransform: 'uppercase',
@@ -366,13 +366,13 @@ function CheckoutForm() {
 
       {/* Right: order summary */}
       <div>
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232', marginBottom: '1.25rem' }}>
+        <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--brand-dark)', marginBottom: '1.25rem' }}>
           Récapitulatif
         </h2>
         <div style={{ border: '1px solid #e5e7eb', padding: '1rem' }}>
           <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '1rem', marginBottom: '1rem' }}>
             {items.map((item) => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', padding: '0.5rem 0', borderBottom: '1px solid #f3f4f6' }}>
+              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', padding: '0.5rem 0', borderBottom: '1px solid var(--brand-bg)' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
                   <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>Qté : {item.quantity}</p>
@@ -393,16 +393,16 @@ function CheckoutForm() {
               <span>Taxes</span>
               <span>Incluses</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #1f2232', paddingTop: '0.75rem', fontWeight: 900, color: '#1f2232', fontSize: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid var(--brand-dark)', paddingTop: '0.75rem', fontWeight: 900, color: 'var(--brand-dark)', fontSize: '1rem' }}>
               <span>Total</span>
-              <span style={{ color: '#e51937' }}>{fmt(serverTotal ?? subtotal, displayCurrency)}</span>
+              <span style={{ color: 'var(--brand-primary)' }}>{fmt(serverTotal ?? subtotal, displayCurrency)}</span>
             </div>
           </div>
         </div>
 
         <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.75rem', textAlign: 'center' }}>
           En passant votre commande, vous acceptez nos{' '}
-          <Link href="/conditions" style={{ color: '#e51937' }}>conditions générales de vente</Link>.
+          <Link href="/conditions" style={{ color: 'var(--brand-primary)' }}>conditions générales de vente</Link>.
         </p>
       </div>
     </form>
@@ -416,10 +416,10 @@ export default function CheckoutPage() {
         <Link href="/cart" style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b7280', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
           ← Retour au panier
         </Link>
-        <h1 style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232', marginTop: '0.5rem' }}>
+        <h1 style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--brand-dark)', marginTop: '0.5rem' }}>
           Paiement
         </h1>
-        <div style={{ width: 40, height: 4, backgroundColor: '#e51937', marginTop: '0.5rem' }} />
+        <div style={{ width: 40, height: 4, backgroundColor: 'var(--brand-primary)', marginTop: '0.5rem' }} />
       </div>
       <Elements stripe={stripePromise}>
         <CheckoutForm />

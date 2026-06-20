@@ -5,6 +5,17 @@
 @tailwind utilities;
 
 @layer base {
+  /* Palette de marque — valeurs par défaut, surchargées au runtime par BrandService
+     (bloc <style> injecté dans le layout racine depuis les réglages). */
+  :root {
+    --brand-primary: #e51937;
+    --brand-primary-dark: #c0102a;
+    --brand-dark: #1f2232;
+    --brand-text: #1f2232;
+    --brand-muted: #6b7280;
+    --brand-bg: #f3f4f6;
+  }
+
   * {
     box-sizing: border-box;
   }
@@ -12,7 +23,7 @@
   body {
     font-family: 'Montserrat', sans-serif;
     font-weight: 300;
-    color: #1f2232;
+    color: var(--brand-text);
     background-color: #ffffff;
   }
 
@@ -20,16 +31,16 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0;
-    color: #1f2232;
+    color: var(--brand-dark);
   }
 
   /* Selection color — sufficient contrast */
-  ::selection       { background: #1f2232; color: #fff; }
-  ::-moz-selection  { background: #1f2232; color: #fff; }
+  ::selection       { background: var(--brand-dark); color: #fff; }
+  ::-moz-selection  { background: var(--brand-dark); color: #fff; }
 
   /* Keyboard focus — visible ring for accessibility */
   :focus-visible {
-    outline: 3px solid #e51937;
+    outline: 3px solid var(--brand-primary);
     outline-offset: 2px;
   }
 
@@ -54,7 +65,7 @@
     font-size: 1.5rem;
     font-weight: 900;
     text-transform: uppercase;
-    color: #1f2232;
+    color: var(--brand-dark);
     margin-bottom: 1.5rem;
     position: relative;
     padding-bottom: 1rem;
@@ -69,7 +80,7 @@
     left: 0;
     width: 50px;
     height: 4px;
-    background-color: #e51937;
+    background-color: var(--brand-primary);
   }
 
   .section-title-center {
@@ -83,12 +94,12 @@
 
   /* Red border accent on sections (like DSF home1/home4) */
   .section-bordered {
-    border-top: 6px solid #e51937;
-    border-bottom: 6px solid #e51937;
+    border-top: 6px solid var(--brand-primary);
+    border-bottom: 6px solid var(--brand-primary);
   }
 
   .form-group  { @apply flex flex-col gap-1; }
-  .form-label  { font-size: 0.875rem; font-weight: 500; color: #1f2232; }
+  .form-label  { font-size: 0.875rem; font-weight: 500; color: var(--brand-dark); }
 }
 
 @layer utilities {

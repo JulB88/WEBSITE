@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { EmailService } from '@/lib/services'
+import { EmailService, SettingsService } from '@/lib/services'
 
 /**
  * POST /api/admin/settings/test-email
@@ -43,14 +43,18 @@ export async function POST() {
   try {
     const sent = await EmailService.send(to, 'Test SMTP — DSF Distribution', html)
     if (!sent) {
+      await SettingsService.set('smtp_verified', '')
       return NextResponse.json({
         ok: false,
         message: "SMTP non configuré. Remplis serveur / port / utilisateur / mot de passe, puis Sauvegarde avant de tester.",
       })
     }
+    // Succès → marque le SMTP comme vérifié (débloque les tests de modèles)
+    await SettingsService.set('smtp_verified', 'true')
     return NextResponse.json({ ok: true, message: `Courriel de test envoyé à ${to} ✓  Vérifie ta boîte de réception.` })
   } catch (err: any) {
-    // Surface le vrai message SMTP (ex: "Username and Password not accepted")
+    // Échec → retire la vérification + surface le vrai message SMTP
+    await SettingsService.set('smtp_verified', '').catch(() => {})
     return NextResponse.json({
       ok: false,
       message: `Échec SMTP : ${err?.message || 'erreur inconnue'}`,

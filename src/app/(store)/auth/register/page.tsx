@@ -90,9 +90,9 @@ export default function RegisterPage() {
   }
 
   const s = {
-    wrap: { minHeight: 'calc(100vh - 4rem)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem', backgroundColor: '#f3f4f6' } as React.CSSProperties,
+    wrap: { minHeight: 'calc(100vh - 4rem)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem', backgroundColor: 'var(--brand-bg)' } as React.CSSProperties,
     card: { width: '100%', maxWidth: 520 } as React.CSSProperties,
-    inner: { backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '4px solid #e51937', padding: '2.5rem' } as React.CSSProperties,
+    inner: { backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '4px solid var(--brand-primary)', padding: '2.5rem' } as React.CSSProperties,
     label: { display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: '#374151', marginBottom: '0.5rem' },
   }
 
@@ -102,10 +102,10 @@ export default function RegisterPage() {
         <div style={s.inner}>
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <h1 style={{ fontSize: '1.4rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232' }}>
+            <h1 style={{ fontSize: '1.4rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--brand-dark)' }}>
               {t('register_title')}
             </h1>
-            <div style={{ width: 40, height: 3, backgroundColor: '#e51937', margin: '0.6rem auto 0.75rem' }} />
+            <div style={{ width: 40, height: 3, backgroundColor: 'var(--brand-primary)', margin: '0.6rem auto 0.75rem' }} />
             <p style={{ fontSize: '0.85rem', fontWeight: 300, color: '#6b7280' }}>
               {t('register_sub')}
             </p>
@@ -126,9 +126,9 @@ export default function RegisterPage() {
                       aria-pressed={active}
                       style={{
                         padding: '0.75rem 1rem',
-                        border: `2px solid ${active ? '#e51937' : '#d1d5db'}`,
+                        border: `2px solid ${active ? 'var(--brand-primary)' : '#d1d5db'}`,
                         backgroundColor: active ? '#fff5f6' : '#fff',
-                        color: active ? '#e51937' : '#6b7280',
+                        color: active ? 'var(--brand-primary)' : '#6b7280',
                         fontWeight: 700,
                         fontSize: '0.8rem',
                         textTransform: 'uppercase',
@@ -306,7 +306,7 @@ export default function RegisterPage() {
 
           <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: '#6b7280' }}>
             {t('register_has_account')}{' '}
-            <Link href="/auth/login" style={{ color: '#e51937', fontWeight: 600, textDecoration: 'none' }}>
+            <Link href="/auth/login" style={{ color: 'var(--brand-primary)', fontWeight: 600, textDecoration: 'none' }}>
               {t('register_login')}
             </Link>
           </p>

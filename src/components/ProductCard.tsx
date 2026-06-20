@@ -51,7 +51,7 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
          className="group hover:shadow-lg">
       {/* Image */}
       <Link href={`/products/${product.id}`} className="block">
-        <div style={{ position: 'relative', height: 200, backgroundColor: '#f3f4f6', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', height: 200, backgroundColor: 'var(--brand-bg)', overflow: 'hidden' }}>
           {product.imageUrl ? (
             <Image
               src={product.imageUrl}
@@ -68,14 +68,14 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
             </div>
           )}
           {/* Red top accent bar */}
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: '#e51937' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: 'var(--brand-primary)' }} />
           {product.stock === 0 && (
             <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.1em' }}>{t('out_of_stock')}</span>
             </div>
           )}
           {hasDiscount && (
-            <div style={{ position: 'absolute', top: 12, right: 0, backgroundColor: '#e51937', color: '#fff', padding: '3px 10px', fontSize: '0.7rem', fontWeight: 700 }}>
+            <div style={{ position: 'absolute', top: 12, right: 0, backgroundColor: 'var(--brand-primary)', color: '#fff', padding: '3px 10px', fontSize: '0.7rem', fontWeight: 700 }}>
               -{Math.round(((product.price - displayPrice) / product.price) * 100)}%
             </div>
           )}
@@ -85,21 +85,21 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
       {/* Content */}
       <div style={{ padding: '1rem' }}>
         {product.category && (
-          <p style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#e51937', marginBottom: '0.35rem' }}>
+          <p style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--brand-primary)', marginBottom: '0.35rem' }}>
             {product.category}
           </p>
         )}
 
         <Link href={`/products/${product.id}`} style={{ textDecoration: 'none' }}>
-          <h3 style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1f2232', lineHeight: 1.3, marginBottom: '0.6rem', textTransform: 'uppercase' }}
-              className="line-clamp-2 hover:text-[#e51937] transition-colors">
+          <h3 style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--brand-dark)', lineHeight: 1.3, marginBottom: '0.6rem', textTransform: 'uppercase' }}
+              className="line-clamp-2 hover:text-[var(--brand-primary)] transition-colors">
             {displayName}
           </h3>
         </Link>
 
         {/* Price */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          <span style={{ fontSize: '1.15rem', fontWeight: 900, color: '#1f2232' }}>
+          <span style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--brand-dark)' }}>
             {displayPrice.toFixed(2)} $
           </span>
           {hasDiscount && (
@@ -120,7 +120,7 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
           disabled={product.stock === 0}
           style={{
             width: '100%',
-            backgroundColor: product.stock === 0 ? '#e5e7eb' : added ? '#16a34a' : '#e51937',
+            backgroundColor: product.stock === 0 ? '#e5e7eb' : added ? '#16a34a' : 'var(--brand-primary)',
             color: product.stock === 0 ? '#9ca3af' : '#fff',
             padding: '10px 16px',
             fontWeight: 700,
@@ -132,7 +132,7 @@ export default function ProductCard({ product, discountPercent = 0 }: ProductCar
             transition: 'background-color 0.2s',
           }}
           onMouseEnter={e => { if (product.stock > 0 && !added) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#333' }}
-          onMouseLeave={e => { if (product.stock > 0 && !added) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#e51937' }}
+          onMouseLeave={e => { if (product.stock > 0 && !added) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--brand-primary)' }}
         >
           {product.stock === 0 ? t('out_of_stock') : added ? t('added_to_cart') : t('add_to_cart')}
         </button>

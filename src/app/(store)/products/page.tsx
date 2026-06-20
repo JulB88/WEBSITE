@@ -67,14 +67,14 @@ function ProductsContent() {
     <div style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
       <div className="container">
         <div style={{ marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#1f2232', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '0.25rem' }}>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--brand-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '0.25rem' }}>
             {t('products_title')}
           </h1>
           <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>{t('products_sub')}</p>
         </div>
 
         {/* Filters */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '3px solid #e51937', padding: '1rem', marginBottom: '2rem' }}>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '3px solid var(--brand-primary)', padding: '1rem', marginBottom: '2rem' }}>
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search */}
             <form onSubmit={handleSearch} style={{ flex: 1 }}>

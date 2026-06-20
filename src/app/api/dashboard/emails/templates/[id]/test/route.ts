@@ -30,7 +30,7 @@ export async function POST(req: NextRequest, { params }: Context) {
   let subject: string
   let html: string
   if (template.systemKey === EMAIL_LAYOUT_KEY) {
-    const r = EmailService.renderLayoutPreview(template.bodyHtml)
+    const r = await EmailService.renderLayoutPreview(template.bodyHtml)
     subject = r.subject
     html = r.html
   } else {

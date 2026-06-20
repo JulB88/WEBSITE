@@ -61,7 +61,7 @@ export default function AccountClient({ user, totalOrders }: Props) {
 
   return (
     <div className="container py-8">
-      <h1 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#1f2232', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2rem' }}>
+      <h1 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--brand-dark)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2rem' }}>
         {t('account_title')}
       </h1>
 

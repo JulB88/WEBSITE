@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import RichEmailEditor from '@/components/dashboard/RichEmailEditor'
+import TestSendButton from '@/components/dashboard/TestSendButton'
 
 const VAR_LABELS: Record<string, string> = {
   companyName: 'Nom entreprise', customerName: 'Nom client', invoiceNo: 'N° facture',
@@ -56,72 +57,89 @@ const SAMPLE_SCALARS: Record<string, Record<string, string>> = {
   },
 }
 
-const SAMPLE_LINES_TABLE = `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:16px 0;">
-<thead><tr style="background:#1f2232;color:#fff;"><th style="padding:10px 12px;text-align:left;">Produit</th><th style="padding:10px 12px;text-align:center;">Qté</th><th style="padding:10px 12px;text-align:right;">Prix unitaire</th><th style="padding:10px 12px;text-align:right;">Total</th></tr></thead>
+interface Brand {
+  nameShort: string; nameLegal: string; tagline: string; logoUrl: string
+  colorPrimary: string; colorPrimaryDark: string; colorDark: string
+  colorText: string; colorMuted: string; colorBg: string
+}
+const BRAND_DEFAULT: Brand = {
+  nameShort: 'DSF', nameLegal: 'Distribution Ste-Foy Ltée', tagline: 'DISTRIBUTION', logoUrl: '/dsf-logo.png',
+  colorPrimary: '#e51937', colorPrimaryDark: '#c0102a', colorDark: '#1f2232',
+  colorText: '#1f2232', colorMuted: '#6b7280', colorBg: '#f3f4f6',
+}
+
+function brandTokens(b: Brand): Record<string, string> {
+  return {
+    brand_primary: b.colorPrimary, brand_primary_dark: b.colorPrimaryDark, brand_dark: b.colorDark,
+    brand_text: b.colorText, brand_muted: b.colorMuted, brand_bg: b.colorBg,
+    nameShort: b.nameShort, nameLegal: b.nameLegal, tagline: b.tagline, logoUrl: b.logoUrl,
+    year: String(new Date().getFullYear()), storeName: b.nameLegal,
+  }
+}
+
+function sampleLinesTable(b: Brand): string {
+  return `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:16px 0;">
+<thead><tr style="background:${b.colorDark};color:#fff;"><th style="padding:10px 12px;text-align:left;">Produit</th><th style="padding:10px 12px;text-align:center;">Qté</th><th style="padding:10px 12px;text-align:right;">Prix unitaire</th><th style="padding:10px 12px;text-align:right;">Total</th></tr></thead>
 <tbody>
 <tr><td style="padding:8px 12px;border-bottom:1px solid #eee;">Panneau de gypse 1/2"</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">10</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">12.95 $</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">129.50 $</td></tr>
-<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;">Vis à gypse (boîte 1000)</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">2</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">16.95 $</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">33.90 $</td></tr>
 </tbody>
-<tfoot><tr><td colspan="3" style="padding:12px;text-align:right;font-weight:700;color:#1f2232;">TOTAL</td><td style="padding:12px;text-align:right;font-weight:900;color:#e51937;font-size:16px;">163.40 $</td></tr></tfoot></table>`
-
-const SAMPLE_STATEMENT_TABLE = `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:16px 0;">
-<thead><tr style="background:#1f2232;color:#fff;"><th style="padding:10px 12px;text-align:left;">Facture</th><th style="padding:10px 12px;text-align:left;">Date</th><th style="padding:10px 12px;text-align:right;">Montant</th><th style="padding:10px 12px;text-align:right;">Payé</th><th style="padding:10px 12px;text-align:right;">Solde</th><th style="padding:10px 12px;text-align:center;">Statut</th></tr></thead>
+<tfoot><tr><td colspan="3" style="padding:12px;text-align:right;font-weight:700;color:${b.colorDark};">TOTAL</td><td style="padding:12px;text-align:right;font-weight:900;color:${b.colorPrimary};font-size:16px;">163.40 $</td></tr></tfoot></table>`
+}
+function sampleStatementTable(b: Brand): string {
+  return `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:16px 0;">
+<thead><tr style="background:${b.colorDark};color:#fff;"><th style="padding:10px 12px;text-align:left;">Facture</th><th style="padding:10px 12px;text-align:left;">Date</th><th style="padding:10px 12px;text-align:right;">Montant</th><th style="padding:10px 12px;text-align:right;">Payé</th><th style="padding:10px 12px;text-align:right;">Solde</th><th style="padding:10px 12px;text-align:center;">Statut</th></tr></thead>
 <tbody>
 <tr><td style="padding:8px 12px;border-bottom:1px solid #eee;">FAC-202605-A1B2C3</td><td style="padding:8px 12px;border-bottom:1px solid #eee;">2026-05-12</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">250.00 $</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">100.00 $</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">150.00 $</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;color:#d97706;font-weight:600;">Partielle</td></tr>
 </tbody></table>`
+}
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function sampleVarsFor(event: string): { vars: Record<string, string>; raw: Set<string> } {
-  const vars = { ...(SAMPLE_SCALARS[event] ?? SAMPLE_SCALARS.purchase_invoice) }
-  if (event === 'purchase_invoice' || event === 'final_invoice') vars.lines_table = SAMPLE_LINES_TABLE
-  if (event === 'monthly_statement') vars.statement_table = SAMPLE_STATEMENT_TABLE
-  return { vars, raw: new Set(['lines_table', 'statement_table']) }
+const RAW_KEYS = new Set(['lines_table', 'statement_table', 'content'])
+
+function sampleVarsFor(event: string, brand: Brand): Record<string, string> {
+  const vars: Record<string, string> = { ...(SAMPLE_SCALARS[event] ?? SAMPLE_SCALARS.purchase_invoice), ...brandTokens(brand) }
+  if (event === 'purchase_invoice' || event === 'final_invoice') vars.lines_table = sampleLinesTable(brand)
+  if (event === 'monthly_statement') vars.statement_table = sampleStatementTable(brand)
+  return vars
 }
 
-function renderTemplate(tpl: string, vars: Record<string, string>, raw: Set<string>): string {
+function renderTemplate(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) => {
     const v = vars[key]
     if (v == null) return ''
-    return raw.has(key) ? v : escapeHtml(v)
+    return RAW_KEYS.has(key) ? v : escapeHtml(v)
   })
 }
 
 const EMAIL_LAYOUT_KEY = 'email_layout'
 
-// Corps d'exemple inséré dans l'aperçu de la mise en page
-const SAMPLE_INNER = `<h2 style="color:#1f2232;margin:0 0 8px;">Confirmation d'achat</h2>
-<p style="color:#374151;font-size:14px;">Construction Tremblay inc.,<br/>merci pour votre commande.</p>${SAMPLE_LINES_TABLE}`
-
 const LAYOUT_FALLBACK = `<div style="max-width:640px;margin:0 auto;padding:24px 16px;">
-  <div style="height:4px;background:#e51937;"></div>
-  <div style="background:#1f2232;padding:18px 24px;"><span style="color:#fff;font-size:20px;font-weight:900;letter-spacing:.08em;">DSF</span><span style="color:#9ca3af;font-size:12px;margin-left:8px;">DISTRIBUTION</span></div>
+  <div style="height:4px;background:{{brand_primary}};"></div>
+  <div style="background:{{brand_dark}};padding:18px 24px;"><span style="color:#fff;font-size:20px;font-weight:900;letter-spacing:.08em;">{{nameShort}}</span><span style="color:#9ca3af;font-size:12px;margin-left:8px;">{{tagline}}</span></div>
   <div style="background:#fff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none;">{{content}}</div>
-  <p style="text-align:center;font-size:11px;color:#9ca3af;margin-top:16px;">© {{year}} {{storeName}} — Ce courriel a été généré automatiquement.</p>
+  <p style="text-align:center;font-size:11px;color:#9ca3af;margin-top:16px;">© {{year}} {{nameLegal}} — Ce courriel a été généré automatiquement.</p>
 </div>`
 
 /** Encadre un corps de courriel avec la mise en page (entête + pied). */
-function wrapWithLayout(layoutBody: string, inner: string): string {
-  const year = String(new Date().getFullYear())
-  const filled = (layoutBody || LAYOUT_FALLBACK)
-    .split('{{content}}').join(inner)
-    .replace(/\{\{\s*year\s*\}\}/g, year)
-    .replace(/\{\{\s*storeName\s*\}\}/g, 'DSF Distribution')
-  return `<div style="background:#f3f4f6;font-family:Arial,sans-serif;padding:16px;">${filled}</div>`
+function wrapWithLayout(layoutBody: string, inner: string, brand: Brand): string {
+  const filled = renderTemplate(layoutBody || LAYOUT_FALLBACK, { content: inner, ...brandTokens(brand) })
+  return `<div style="background:${brand.colorBg};font-family:Arial,sans-serif;padding:16px;">${filled}</div>`
 }
 
 /** Aperçu d'un modèle d'événement, encadré par la mise en page. */
-function previewHtml(bodyHtml: string, event: string, layoutBody: string): string {
-  const { vars, raw } = sampleVarsFor(event)
-  const inner = renderTemplate(bodyHtml, vars, raw)
-  return wrapWithLayout(layoutBody, inner)
+function previewHtml(bodyHtml: string, event: string, layoutBody: string, brand: Brand): string {
+  const inner = renderTemplate(bodyHtml, sampleVarsFor(event, brand))
+  return wrapWithLayout(layoutBody, inner, brand)
 }
 
 /** Aperçu du modèle de mise en page lui-même (avec un corps d'exemple). */
-function previewLayoutHtml(layoutBody: string): string {
-  return wrapWithLayout(layoutBody, SAMPLE_INNER)
+function previewLayoutHtml(layoutBody: string, brand: Brand): string {
+  const sampleInner = `<h2 style="color:${brand.colorDark};margin:0 0 8px;">Confirmation d'achat</h2>
+<p style="color:#374151;font-size:14px;">Construction Tremblay inc.,<br/>merci pour votre commande.</p>${sampleLinesTable(brand)}`
+  return wrapWithLayout(layoutBody, sampleInner, brand)
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -130,6 +148,8 @@ export default function EmailsPage() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [triggers, setTriggers]   = useState<Trigger[]>([])
   const [events, setEvents]       = useState<EventMeta[]>([])
+  const [brand, setBrand]         = useState<Brand>(BRAND_DEFAULT)
+  const [smtpReady, setSmtpReady] = useState(false)
   const [loading, setLoading]     = useState(true)
   const [message, setMessage]     = useState('')
 
@@ -143,6 +163,8 @@ export default function EmailsPage() {
       setTemplates(d.templates ?? [])
       setTriggers(d.triggers ?? [])
       setEvents(d.events ?? [])
+      if (d.brand) setBrand(d.brand)
+      setSmtpReady(!!d.smtpReady)
     } finally { setLoading(false) }
   }, [])
 
@@ -297,6 +319,8 @@ export default function EmailsPage() {
           events={events}
           triggers={triggers}
           layoutBody={layoutBody}
+          brand={brand}
+          smtpReady={smtpReady}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load() }}
           onFlash={flash}
@@ -308,11 +332,13 @@ export default function EmailsPage() {
 
 // ─── Éditeur de modèle ────────────────────────────────────────────────────────
 
-function TemplateEditor({ template, events, triggers, layoutBody, onClose, onSaved, onFlash }: {
+function TemplateEditor({ template, events, triggers, layoutBody, brand, smtpReady, onClose, onSaved, onFlash }: {
   template: Template
   events: EventMeta[]
   triggers: Trigger[]
   layoutBody: string
+  brand: Brand
+  smtpReady: boolean
   onClose: () => void
   onSaved: () => void
   onFlash: (m: string) => void
@@ -322,7 +348,6 @@ function TemplateEditor({ template, events, triggers, layoutBody, onClose, onSav
   const [subject, setSubject] = useState(template.subject)
   const [body, setBody]       = useState(template.bodyHtml)
   const [saving, setSaving]   = useState(false)
-  const [testing, setTesting] = useState(false)
   const subjectRef = useRef<HTMLInputElement>(null)
 
   // Contexte d'aperçu : événement lié à ce modèle, ou le 1er
@@ -360,21 +385,18 @@ function TemplateEditor({ template, events, triggers, layoutBody, onClose, onSav
     } finally { setSaving(false) }
   }
 
-  async function sendTest() {
-    setTesting(true)
-    try {
-      // Sauvegarder d'abord pour tester la version courante
-      await fetch(`/api/dashboard/emails/templates/${template.id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, subject, bodyHtml: body }),
-      })
-      const res = await fetch(`/api/dashboard/emails/templates/${template.id}/test`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: previewEvent }),
-      })
-      const d = await res.json()
-      onFlash(d.message ?? (d.ok ? 'Test envoyé' : 'Échec du test'))
-    } finally { setTesting(false) }
+  async function runTest(signal: AbortSignal): Promise<{ ok: boolean; message: string }> {
+    // Sauvegarder d'abord pour tester la version courante
+    await fetch(`/api/dashboard/emails/templates/${template.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, subject, bodyHtml: body }), signal,
+    })
+    const res = await fetch(`/api/dashboard/emails/templates/${template.id}/test`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: previewEvent }), signal,
+    })
+    const d = await res.json()
+    return { ok: !!d.ok, message: d.message ?? (d.ok ? 'Test envoyé' : 'Échec du test') }
   }
 
   return (
@@ -437,21 +459,22 @@ function TemplateEditor({ template, events, triggers, layoutBody, onClose, onSav
               )}
             </div>
             {!isLayout && (
-              <p className="text-xs text-gray-400 mb-2">Sujet : {renderTemplate(subject, sampleVarsFor(previewEvent).vars, new Set())}</p>
+              <p className="text-xs text-gray-400 mb-2">Sujet : {renderTemplate(subject, sampleVarsFor(previewEvent, brand))}</p>
             )}
             <iframe
               title="Aperçu"
-              srcDoc={isLayout ? previewLayoutHtml(body) : previewHtml(body, previewEvent, layoutBody)}
+              srcDoc={isLayout ? previewLayoutHtml(body, brand) : previewHtml(body, previewEvent, layoutBody, brand)}
               className="w-full h-[380px] bg-white border border-gray-200 rounded-lg"
             />
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-2 px-6 py-4 border-t">
-          <button onClick={sendTest} disabled={testing}
-            className="text-sm border border-gray-200 rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-            {testing ? 'Envoi…' : '✉ Envoyer un test'}
-          </button>
+          <TestSendButton
+            onTest={runTest}
+            disabled={!smtpReady}
+            disabledReason="Configure et teste d'abord le SMTP dans Paramètres → Courriels transactionnels. Le test devient disponible une fois l'envoi vérifié."
+          />
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Annuler</button>
             <button onClick={save} disabled={saving}

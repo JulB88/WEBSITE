@@ -23,7 +23,7 @@ export default function CartPage() {
           <svg className="w-20 h-20 mx-auto mb-6" style={{ color: '#d1d5db' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1f2232', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--brand-dark)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
             {t('cart_empty_title')}
           </h1>
           <p style={{ color: '#6b7280', marginBottom: '2rem', fontSize: '0.9rem' }}>{t('cart_empty_sub')}</p>
@@ -38,12 +38,12 @@ export default function CartPage() {
   return (
     <div className="container" style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#1f2232', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <h1 style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--brand-dark)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {t('cart_title')}
         </h1>
         <button
           onClick={clearCart}
-          style={{ fontSize: '0.82rem', color: '#e51937', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+          style={{ fontSize: '0.82rem', color: 'var(--brand-primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
         >
           {t('cart_clear')}
         </button>
@@ -68,7 +68,7 @@ export default function CartPage() {
             >
               {/* Image + name */}
               <div className="col-span-12 md:col-span-6 flex items-center gap-4">
-                <div style={{ width: 64, height: 64, backgroundColor: '#f3f4f6', overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
+                <div style={{ width: 64, height: 64, backgroundColor: 'var(--brand-bg)', overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
                   {item.imageUrl ? (
                     <Image src={item.imageUrl} alt={item.name} fill className="object-cover" sizes="64px" />
                   ) : (
@@ -80,7 +80,7 @@ export default function CartPage() {
                   )}
                 </div>
                 <div>
-                  <Link href={`/products/${item.id}`} style={{ fontWeight: 600, color: '#1f2232', fontSize: '0.85rem', textDecoration: 'none', textTransform: 'uppercase' }}>
+                  <Link href={`/products/${item.id}`} style={{ fontWeight: 600, color: 'var(--brand-dark)', fontSize: '0.85rem', textDecoration: 'none', textTransform: 'uppercase' }}>
                     {item.name}
                   </Link>
                   {item.category && (
@@ -88,7 +88,7 @@ export default function CartPage() {
                   )}
                   <button
                     onClick={() => removeItem(item.id)}
-                    style={{ fontSize: '0.72rem', color: '#e51937', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4, padding: 0 }}
+                    style={{ fontSize: '0.72rem', color: 'var(--brand-primary)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4, padding: 0 }}
                   >
                     {t('cart_remove')}
                   </button>
@@ -97,7 +97,7 @@ export default function CartPage() {
 
               {/* Unit price */}
               <div className="col-span-4 md:col-span-2 text-center">
-                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1f2232' }}>{item.displayPrice.toFixed(2)} $</span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--brand-dark)' }}>{item.displayPrice.toFixed(2)} $</span>
                 {item.displayPrice < item.price && (
                   <p style={{ fontSize: '0.72rem', color: '#9ca3af', textDecoration: 'line-through' }}>{item.price.toFixed(2)} $</p>
                 )}
@@ -114,7 +114,7 @@ export default function CartPage() {
 
               {/* Subtotal */}
               <div className="col-span-4 md:col-span-2 text-right">
-                <span style={{ fontWeight: 700, color: '#1f2232' }}>{(item.displayPrice * item.quantity).toFixed(2)} $</span>
+                <span style={{ fontWeight: 700, color: 'var(--brand-dark)' }}>{(item.displayPrice * item.quantity).toFixed(2)} $</span>
               </div>
             </div>
           ))}
@@ -122,8 +122,8 @@ export default function CartPage() {
 
         {/* Order summary */}
         <div className="lg:col-span-1">
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '3px solid #e51937', padding: '1.5rem', position: 'sticky', top: '6rem' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#1f2232', marginBottom: '1.25rem' }}>
+          <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '3px solid var(--brand-primary)', padding: '1.5rem', position: 'sticky', top: '6rem' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--brand-dark)', marginBottom: '1.25rem' }}>
               {t('cart_summary')}
             </h2>
 
@@ -137,8 +137,8 @@ export default function CartPage() {
                 <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '0.78rem' }}>{t('cart_shipping_note')}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: '0.75rem' }}>
-                <span style={{ fontWeight: 700, color: '#1f2232' }}>{t('cart_total')}</span>
-                <span style={{ fontWeight: 900, fontSize: '1.2rem', color: '#1f2232' }}>{subtotal.toFixed(2)} $</span>
+                <span style={{ fontWeight: 700, color: 'var(--brand-dark)' }}>{t('cart_total')}</span>
+                <span style={{ fontWeight: 900, fontSize: '1.2rem', color: 'var(--brand-dark)' }}>{subtotal.toFixed(2)} $</span>
               </div>
             </div>
 

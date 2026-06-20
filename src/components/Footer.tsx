@@ -4,19 +4,25 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useI18n } from '@/lib/i18n'
 
-export default function Footer() {
+interface FooterProps {
+  logoUrl?: string
+  nameShort?: string
+  nameLegal?: string
+}
+
+export default function Footer({ logoUrl = '/dsf-logo.png', nameShort = 'DSF', nameLegal = 'Distribution Ste-Foy Ltée' }: FooterProps) {
   const { t } = useI18n()
   const year = new Date().getFullYear()
 
   return (
-    <footer style={{ backgroundColor: '#1f2232', color: '#9ca3af' }}>
-      <div style={{ height: '6px', backgroundColor: '#e51937' }} />
+    <footer style={{ backgroundColor: 'var(--brand-dark)', color: '#9ca3af' }}>
+      <div style={{ height: '6px', backgroundColor: 'var(--brand-primary)' }} />
       <div className="container py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {/* Brand */}
           <div>
             <div className="mb-4">
-              <Image src="/dsf-logo.png" alt="DSF" width={110} height={38} style={{ objectFit: 'contain' }} />
+              <Image src={logoUrl} alt={nameShort} width={110} height={38} style={{ objectFit: 'contain' }} />
             </div>
             <p className="text-sm" style={{ fontWeight: 300 }}>
               {t('home_hero_sub').split('—')[0].trim()}
@@ -46,7 +52,7 @@ export default function Footer() {
         </div>
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '2.5rem', paddingTop: '1.5rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 300 }}>
-          <p>{t('footer_copy', { year })}</p>
+          <p>© {year} {nameLegal}</p>
         </div>
       </div>
     </footer>

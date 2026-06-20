@@ -46,12 +46,12 @@ function LoginForm() {
   }
 
   return (
-    <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '4px solid #e51937', padding: '2.5rem' }}>
+    <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderTop: '4px solid var(--brand-primary)', padding: '2.5rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232' }}>
+        <h1 style={{ fontSize: '1.4rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--brand-dark)' }}>
           {t('login_title')}
         </h1>
-        <div style={{ width: 40, height: 3, backgroundColor: '#e51937', margin: '0.6rem auto 0.75rem' }} />
+        <div style={{ width: 40, height: 3, backgroundColor: 'var(--brand-primary)', margin: '0.6rem auto 0.75rem' }} />
         <p style={{ fontSize: '0.85rem', fontWeight: 300, color: '#6b7280' }}>
           {t('login_sub')}
         </p>
@@ -90,7 +90,7 @@ function LoginForm() {
 
       <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: '#6b7280' }}>
         {t('login_no_account')}{' '}
-        <Link href="/auth/register" style={{ color: '#e51937', fontWeight: 600, textDecoration: 'none' }}>
+        <Link href="/auth/register" style={{ color: 'var(--brand-primary)', fontWeight: 600, textDecoration: 'none' }}>
           {t('login_create')}
         </Link>
       </p>
@@ -100,11 +100,11 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div style={{ minHeight: 'calc(100vh - 4rem)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem', backgroundColor: '#f3f4f6' }}>
+    <div style={{ minHeight: 'calc(100vh - 4rem)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem', backgroundColor: 'var(--brand-bg)' }}>
       <div style={{ width: '100%', maxWidth: 420 }}>
         <Suspense fallback={
           <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', padding: '2.5rem', textAlign: 'center' }}>
-            <div style={{ height: 200, backgroundColor: '#f3f4f6' }} />
+            <div style={{ height: 200, backgroundColor: 'var(--brand-bg)' }} />
           </div>
         }>
           <LoginForm />

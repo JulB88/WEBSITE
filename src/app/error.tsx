@@ -27,7 +27,7 @@ export default function GlobalError({
       <div style={{ marginBottom: '1.5rem' }}>
         <span style={{
           display: 'inline-block',
-          backgroundColor: '#1f2232',
+          backgroundColor: 'var(--brand-dark)',
           color: '#fff',
           fontWeight: 900,
           fontSize: '4rem',
@@ -41,12 +41,12 @@ export default function GlobalError({
         fontWeight: 900,
         textTransform: 'uppercase',
         letterSpacing: '0.05em',
-        color: '#1f2232',
+        color: 'var(--brand-dark)',
         marginBottom: '0.75rem',
       }}>
         Une erreur est survenue
       </h1>
-      <div style={{ width: 56, height: 4, backgroundColor: '#e51937', margin: '0 auto 1.5rem' }} />
+      <div style={{ width: 56, height: 4, backgroundColor: 'var(--brand-primary)', margin: '0 auto 1.5rem' }} />
       <p style={{ fontSize: '0.95rem', fontWeight: 300, color: '#6b7280', maxWidth: 480, lineHeight: 1.8, marginBottom: '2rem' }}>
         Quelque chose s&apos;est mal passé. Notre équipe a été notifiée.
         Vous pouvez réessayer ou revenir à l&apos;accueil.
@@ -60,7 +60,7 @@ export default function GlobalError({
         <button
           onClick={reset}
           style={{
-            backgroundColor: '#e51937', color: '#fff',
+            backgroundColor: 'var(--brand-primary)', color: '#fff',
             padding: '12px 32px', fontWeight: 700,
             fontSize: '0.78rem', textTransform: 'uppercase',
             letterSpacing: '0.08em', border: 'none', cursor: 'pointer',
@@ -71,7 +71,7 @@ export default function GlobalError({
         <a
           href="/"
           style={{
-            border: '2px solid #1f2232', color: '#1f2232',
+            border: '2px solid var(--brand-dark)', color: 'var(--brand-dark)',
             padding: '10px 32px', fontWeight: 700,
             fontSize: '0.78rem', textTransform: 'uppercase',
             letterSpacing: '0.08em', textDecoration: 'none',

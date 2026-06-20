@@ -150,7 +150,7 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
             <Link
               href="/checkout"
               onClick={onClose}
-              style={{ display: 'block', width: '100%', backgroundColor: '#e51937', color: '#fff', padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.08em', textDecoration: 'none' }}
+              style={{ display: 'block', width: '100%', backgroundColor: 'var(--brand-primary)', color: '#fff', padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.08em', textDecoration: 'none' }}
             >
               Commander
             </Link>

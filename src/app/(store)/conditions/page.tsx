@@ -3,10 +3,10 @@ export const metadata = { title: 'Conditions générales de vente — DSF' }
 export default function ConditionsPage() {
   return (
     <div className="container" style={{ paddingTop: '4rem', paddingBottom: '5rem', maxWidth: 800 }}>
-      <h1 style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#1f2232', marginBottom: '0.6rem' }}>
+      <h1 style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--brand-dark)', marginBottom: '0.6rem' }}>
         Conditions générales de vente
       </h1>
-      <div style={{ width: 56, height: 4, backgroundColor: '#e51937', marginBottom: '2.5rem' }} />
+      <div style={{ width: 56, height: 4, backgroundColor: 'var(--brand-primary)', marginBottom: '2.5rem' }} />
 
       {[
         {
@@ -51,7 +51,7 @@ export default function ConditionsPage() {
         },
       ].map((section) => (
         <div key={section.title} style={{ marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#1f2232', marginBottom: '0.5rem' }}>
+          <h2 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--brand-dark)', marginBottom: '0.5rem' }}>
             {section.title}
           </h2>
           <p style={{ fontSize: '0.9rem', fontWeight: 300, color: '#4b5563', lineHeight: 1.9 }}>

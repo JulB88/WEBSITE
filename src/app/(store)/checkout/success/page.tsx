@@ -22,12 +22,12 @@ export default function CheckoutSuccessPage() {
           fontWeight: 900,
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
-          color: '#1f2232',
+          color: 'var(--brand-dark)',
           marginBottom: '0.6rem',
         }}>
           Commande confirmée !
         </h1>
-        <div style={{ width: 56, height: 4, backgroundColor: '#e51937', margin: '0 auto 1.5rem' }} />
+        <div style={{ width: 56, height: 4, backgroundColor: 'var(--brand-primary)', margin: '0 auto 1.5rem' }} />
 
         <p style={{ fontSize: '0.95rem', fontWeight: 300, color: '#4b5563', lineHeight: 1.8, marginBottom: '0.75rem' }}>
           Merci pour votre commande. Votre paiement a été reçu et votre commande est en cours de traitement.
@@ -41,7 +41,7 @@ export default function CheckoutSuccessPage() {
             href="/account/orders"
             style={{
               display: 'block',
-              backgroundColor: '#e51937', color: '#fff',
+              backgroundColor: 'var(--brand-primary)', color: '#fff',
               padding: '14px 24px', fontWeight: 700,
               fontSize: '0.78rem', textTransform: 'uppercase',
               letterSpacing: '0.08em', textDecoration: 'none',
@@ -53,7 +53,7 @@ export default function CheckoutSuccessPage() {
             href="/products"
             style={{
               display: 'block',
-              border: '2px solid #1f2232', color: '#1f2232',
+              border: '2px solid var(--brand-dark)', color: 'var(--brand-dark)',
               padding: '12px 24px', fontWeight: 700,
               fontSize: '0.78rem', textTransform: 'uppercase',
               letterSpacing: '0.08em', textDecoration: 'none',

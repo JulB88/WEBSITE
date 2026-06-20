@@ -17,7 +17,10 @@ export class SettingsService {
     'stripe_publishable_key', 'stripe_secret_key', 'stripe_webhook_secret',
     'bc_tenant_id', 'bc_client_id', 'bc_client_secret', 'bc_environment', 'bc_company_id',
     'site_lock_enabled', 'site_password', 'site_totp_secret',
-    'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'email_from',
+    'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'email_from', 'smtp_verified',
+    'brand_name_short', 'brand_name_legal', 'brand_tagline', 'brand_logo_url',
+    'brand_color_primary', 'brand_color_primary_dark', 'brand_color_dark',
+    'brand_color_text', 'brand_color_muted', 'brand_color_bg',
   ])
 
   // ─── Clés chiffrées en BD + masquées en lecture ────────────────────────────

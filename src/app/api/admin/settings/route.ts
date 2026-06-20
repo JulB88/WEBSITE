@@ -54,6 +54,13 @@ export async function POST(req: NextRequest) {
     toSave[key] = value.trim()
   }
 
+  // Si la config SMTP change, retirer la vérification (il faudra re-tester)
+  const SMTP_KEYS = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'email_from']
+  const current = await SettingsService.getMany(SMTP_KEYS)
+  const smtpChanged = SMTP_KEYS.some((k) => k in toSave && toSave[k] !== current[k])
+
   await SettingsService.setMany(toSave)
+  if (smtpChanged) await SettingsService.set('smtp_verified', '')
+
   return NextResponse.json({ ok: true })
 }

@@ -15,7 +15,7 @@ export default function NotFound() {
       <div style={{ marginBottom: '1.5rem' }}>
         <span style={{
           display: 'inline-block',
-          backgroundColor: '#e51937',
+          backgroundColor: 'var(--brand-primary)',
           color: '#fff',
           fontWeight: 900,
           fontSize: '4rem',
@@ -29,12 +29,12 @@ export default function NotFound() {
         fontWeight: 900,
         textTransform: 'uppercase',
         letterSpacing: '0.05em',
-        color: '#1f2232',
+        color: 'var(--brand-dark)',
         marginBottom: '0.75rem',
       }}>
         Page introuvable
       </h1>
-      <div style={{ width: 56, height: 4, backgroundColor: '#e51937', margin: '0 auto 1.5rem' }} />
+      <div style={{ width: 56, height: 4, backgroundColor: 'var(--brand-primary)', margin: '0 auto 1.5rem' }} />
       <p style={{ fontSize: '0.95rem', fontWeight: 300, color: '#6b7280', maxWidth: 480, lineHeight: 1.8, marginBottom: '2rem' }}>
         La page que vous recherchez n&apos;existe pas ou a été déplacée.
         Vérifiez l&apos;URL ou retournez à l&apos;accueil.
@@ -43,7 +43,7 @@ export default function NotFound() {
         <Link
           href="/"
           style={{
-            backgroundColor: '#e51937', color: '#fff',
+            backgroundColor: 'var(--brand-primary)', color: '#fff',
             padding: '12px 32px', fontWeight: 700,
             fontSize: '0.78rem', textTransform: 'uppercase',
             letterSpacing: '0.08em', textDecoration: 'none',
@@ -54,7 +54,7 @@ export default function NotFound() {
         <Link
           href="/products"
           style={{
-            border: '2px solid #1f2232', color: '#1f2232',
+            border: '2px solid var(--brand-dark)', color: 'var(--brand-dark)',
             padding: '10px 32px', fontWeight: 700,
             fontSize: '0.78rem', textTransform: 'uppercase',
             letterSpacing: '0.08em', textDecoration: 'none',

@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
-import { EmailService, EMAIL_EVENTS } from '@/lib/services'
+import { EmailService, EMAIL_EVENTS, BrandService, SettingsService } from '@/lib/services'
 
 /**
  * GET /api/dashboard/emails
@@ -21,10 +21,15 @@ export async function GET() {
 
   await EmailService.seedDefaults()
 
-  const [templates, triggers] = await Promise.all([
+  const [templates, triggers, brand, smtp] = await Promise.all([
     prisma.emailTemplate.findMany({ orderBy: { createdAt: 'asc' } }),
     prisma.emailTrigger.findMany(),
+    BrandService.get(),
+    SettingsService.getMany(['smtp_host', 'smtp_user', 'smtp_password', 'smtp_verified']),
   ])
 
-  return NextResponse.json({ templates, triggers, events: EMAIL_EVENTS })
+  // SMTP prêt = configuré ET testé avec succès au moins une fois
+  const smtpReady = !!(smtp.smtp_host && smtp.smtp_user && smtp.smtp_password && smtp.smtp_verified === 'true')
+
+  return NextResponse.json({ templates, triggers, events: EMAIL_EVENTS, brand, smtpReady })
 }

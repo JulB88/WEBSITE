@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import { prisma } from '@/lib/prisma'
 import { SettingsService } from './SettingsService'
+import { BrandService, type Brand } from './BrandService'
 
 /**
  * EmailService — envoi SMTP (Nodemailer) + moteur de modèles & workflows.
@@ -177,16 +178,16 @@ const DEFAULT_TEMPLATES: DefaultTemplate[] = [
 // Mise en page par défaut (entête + pied) — {{content}} = corps du courriel.
 // Éditable depuis /dashboard/emails. Encadré ensuite par htmlShell() (non éditable).
 const DEFAULT_LAYOUT_BODY = `<div style="max-width:640px;margin:0 auto;padding:24px 16px;">
-  <div style="height:4px;background:#e51937;"></div>
-  <div style="background:#1f2232;padding:18px 24px;">
-    <span style="color:#ffffff;font-size:20px;font-weight:900;letter-spacing:.08em;">DSF</span>
-    <span style="color:#9ca3af;font-size:12px;margin-left:8px;letter-spacing:.06em;">DISTRIBUTION</span>
+  <div style="height:4px;background:{{brand_primary}};"></div>
+  <div style="background:{{brand_dark}};padding:18px 24px;">
+    <span style="color:#ffffff;font-size:20px;font-weight:900;letter-spacing:.08em;">{{nameShort}}</span>
+    <span style="color:#9ca3af;font-size:12px;margin-left:8px;letter-spacing:.06em;">{{tagline}}</span>
   </div>
   <div style="background:#ffffff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none;">
     {{content}}
   </div>
   <p style="text-align:center;font-size:11px;color:#9ca3af;margin-top:16px;">
-    © {{year}} {{storeName}} — Ce courriel a été généré automatiquement, merci de ne pas y répondre.
+    © {{year}} {{nameLegal}} — Ce courriel a été généré automatiquement, merci de ne pas y répondre.
   </p>
 </div>`
 
@@ -247,6 +248,21 @@ export class EmailService {
       update: {},
       create: { systemKey: EMAIL_LAYOUT_KEY, name: 'Entête et pied de page', subject: 'Mise en page', bodyHtml: DEFAULT_LAYOUT_BODY },
     })
+
+    // ── Mise à niveau unique : faire suivre la palette de marque aux modèles système ──
+    const systemTemplates = await prisma.emailTemplate.findMany({ where: { systemKey: { not: null } } })
+    for (const t of systemTemplates) {
+      if (t.systemKey === EMAIL_LAYOUT_KEY) {
+        // Ancienne mise en page (hex/noms littéraux) → version à jetons de marque
+        if (!t.bodyHtml.includes('{{nameShort}}')) {
+          await prisma.emailTemplate.update({ where: { id: t.id }, data: { bodyHtml: DEFAULT_LAYOUT_BODY } })
+        }
+      } else if (!t.bodyHtml.includes('{{brand_') && (t.bodyHtml.includes('#1f2232') || t.bodyHtml.includes('#e51937'))) {
+        // Remplace les couleurs de marque littérales par des jetons (une seule fois)
+        const upgraded = t.bodyHtml.split('#1f2232').join('{{brand_dark}}').split('#e51937').join('{{brand_primary}}')
+        await prisma.emailTemplate.update({ where: { id: t.id }, data: { bodyHtml: upgraded } })
+      }
+    }
   }
 
   // ─── Mise en page (entête + pied) ─────────────────────────────────────────────
@@ -258,9 +274,12 @@ export class EmailService {
       await this.seedDefaults()
       layout = await prisma.emailTemplate.findUnique({ where: { systemKey: EMAIL_LAYOUT_KEY } })
     }
-    const storeName = (await SettingsService.get('store_name')) || 'DSF Distribution'
+    const brand = await BrandService.get()
+    const storeName = (await SettingsService.get('store_name')) || brand.nameLegal
     const year = String(new Date().getFullYear())
-    const filled = renderTemplate(layout?.bodyHtml ?? DEFAULT_LAYOUT_BODY, { content: innerHtml, year, storeName })
+    const filled = renderTemplate(layout?.bodyHtml ?? DEFAULT_LAYOUT_BODY, {
+      content: innerHtml, year, storeName, ...brandTokens(brand),
+    })
     return htmlShell(filled)
   }
 
@@ -298,20 +317,23 @@ export class EmailService {
   // ─── Builders de variables → dispatch ────────────────────────────────────────
 
   static async dispatchInvoice(event: 'purchase_invoice' | 'final_invoice', to: string, data: InvoiceData): Promise<boolean> {
-    return this.dispatch(event, to, this.invoiceVars(data))
+    const brand = await BrandService.get()
+    return this.dispatch(event, to, { ...this.invoiceVars(data, brand), ...brandTokens(brand) })
   }
 
   static async dispatchPayment(to: string, data: PaymentData): Promise<boolean> {
-    return this.dispatch('payment_confirmation', to, this.paymentVars(data))
+    const brand = await BrandService.get()
+    return this.dispatch('payment_confirmation', to, { ...this.paymentVars(data), ...brandTokens(brand) })
   }
 
   static async dispatchStatement(to: string, data: StatementData): Promise<boolean> {
-    return this.dispatch('monthly_statement', to, this.statementVars(data))
+    const brand = await BrandService.get()
+    return this.dispatch('monthly_statement', to, { ...this.statementVars(data, brand), ...brandTokens(brand) })
   }
 
   // ─── Construction des variables ──────────────────────────────────────────────
 
-  static invoiceVars(data: InvoiceData): Record<string, string> {
+  static invoiceVars(data: InvoiceData, brand: Brand = BrandService.DEFAULTS): Record<string, string> {
     const paymentMethodLabel =
       data.paymentMethod === 'CARD'
         ? 'Payée par carte de crédit'
@@ -326,7 +348,7 @@ export class EmailService {
       date:               data.date.toLocaleDateString('fr-CA'),
       total:              CURRENCY(data.total),
       paymentMethodLabel,
-      lines_table:        linesTableHtml(data.lines),
+      lines_table:        linesTableHtml(data.lines, brand),
     }
   }
 
@@ -343,12 +365,12 @@ export class EmailService {
     }
   }
 
-  static statementVars(data: StatementData): Record<string, string> {
+  static statementVars(data: StatementData, brand: Brand = BrandService.DEFAULTS): Record<string, string> {
     return {
       companyName:     data.companyName,
       customerName:    data.customerName,
       period:          data.period,
-      statement_table: statementTableHtml(data.lines),
+      statement_table: statementTableHtml(data.lines, brand),
       totalBilled:     CURRENCY(data.totalBilled),
       totalPaid:       CURRENCY(data.totalPaid),
       balance:         CURRENCY(data.balance),
@@ -360,20 +382,40 @@ export class EmailService {
 
   /** Aperçu d'un modèle d'événement (corps encadré par la mise en page enregistrée). */
   static async renderEmailPreview(subject: string, bodyHtml: string, event: string): Promise<{ subject: string; html: string }> {
-    const vars = sampleVars(event)
+    const brand = await BrandService.get()
+    const vars = { ...sampleVars(event, brand), ...brandTokens(brand) }
     const inner = renderTemplate(bodyHtml, vars)
     return { subject: renderTemplate(subject, vars), html: await this.wrapInLayout(inner) }
   }
 
   /** Aperçu du modèle de mise en page lui-même, avec un corps de courriel d'exemple. */
-  static renderLayoutPreview(layoutBody: string): { subject: string; html: string } {
-    const sampleInner = renderTemplate(DEFAULT_TEMPLATES[0].body, sampleVars('purchase_invoice'))
+  static async renderLayoutPreview(layoutBody: string): Promise<{ subject: string; html: string }> {
+    const brand = await BrandService.get()
+    const tokens = brandTokens(brand)
+    const sampleInner = renderTemplate(DEFAULT_TEMPLATES[0].body, { ...sampleVars('purchase_invoice', brand), ...tokens })
     const filled = renderTemplate(layoutBody, {
       content: sampleInner,
       year: String(new Date().getFullYear()),
-      storeName: 'DSF Distribution',
+      storeName: brand.nameLegal,
+      ...tokens,
     })
     return { subject: 'Aperçu — Entête et pied de page', html: htmlShell(filled) }
+  }
+}
+
+/** Jetons de marque disponibles dans tous les modèles de courriels. */
+function brandTokens(brand: Brand): Record<string, string> {
+  return {
+    brand_primary:      brand.colorPrimary,
+    brand_primary_dark: brand.colorPrimaryDark,
+    brand_dark:         brand.colorDark,
+    brand_text:         brand.colorText,
+    brand_muted:        brand.colorMuted,
+    brand_bg:           brand.colorBg,
+    nameShort:          brand.nameShort,
+    nameLegal:          brand.nameLegal,
+    tagline:            brand.tagline,
+    logoUrl:            brand.logoUrl,
   }
 }
 
@@ -387,7 +429,7 @@ function renderTemplate(tpl: string, vars: Record<string, string>): string {
   })
 }
 
-function linesTableHtml(lines: InvoiceLine[]): string {
+function linesTableHtml(lines: InvoiceLine[], brand: Brand): string {
   const rows = lines.map((l) => `
     <tr>
       <td style="padding:8px 12px;border-bottom:1px solid #eee;">${escapeHtml(l.name)}</td>
@@ -397,7 +439,7 @@ function linesTableHtml(lines: InvoiceLine[]): string {
     </tr>`).join('')
   const total = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0)
   return `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:16px 0;">
-    <thead><tr style="background:#1f2232;color:#fff;">
+    <thead><tr style="background:${brand.colorDark};color:#fff;">
       <th style="padding:10px 12px;text-align:left;">Produit</th>
       <th style="padding:10px 12px;text-align:center;">Qté</th>
       <th style="padding:10px 12px;text-align:right;">Prix unitaire</th>
@@ -405,13 +447,13 @@ function linesTableHtml(lines: InvoiceLine[]): string {
     </tr></thead>
     <tbody>${rows}</tbody>
     <tfoot><tr>
-      <td colspan="3" style="padding:12px;text-align:right;font-weight:700;color:#1f2232;">TOTAL</td>
-      <td style="padding:12px;text-align:right;font-weight:900;color:#e51937;font-size:16px;">${CURRENCY(total)}</td>
+      <td colspan="3" style="padding:12px;text-align:right;font-weight:700;color:${brand.colorDark};">TOTAL</td>
+      <td style="padding:12px;text-align:right;font-weight:900;color:${brand.colorPrimary};font-size:16px;">${CURRENCY(total)}</td>
     </tr></tfoot>
   </table>`
 }
 
-function statementTableHtml(lines: StatementOrderLine[]): string {
+function statementTableHtml(lines: StatementOrderLine[], brand: Brand): string {
   const rows = lines.map((l) => {
     const color = l.status === 'PAID' ? '#16a34a' : l.status === 'PARTIAL' ? '#d97706' : '#dc2626'
     const label = l.status === 'PAID' ? 'Payée' : l.status === 'PARTIAL' ? 'Partielle' : 'Impayée'
@@ -425,7 +467,7 @@ function statementTableHtml(lines: StatementOrderLine[]): string {
     </tr>`
   }).join('')
   return `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:16px 0;">
-    <thead><tr style="background:#1f2232;color:#fff;">
+    <thead><tr style="background:${brand.colorDark};color:#fff;">
       <th style="padding:10px 12px;text-align:left;">Facture</th>
       <th style="padding:10px 12px;text-align:left;">Date</th>
       <th style="padding:10px 12px;text-align:right;">Montant</th>
@@ -438,7 +480,7 @@ function statementTableHtml(lines: StatementOrderLine[]): string {
 }
 
 /** Données d'exemple pour l'aperçu / le test d'un modèle. */
-function sampleVars(event: string): Record<string, string> {
+function sampleVars(event: string, brand: Brand = BrandService.DEFAULTS): Record<string, string> {
   switch (event) {
     case 'payment_confirmation':
       return EmailService.paymentVars({
@@ -453,12 +495,12 @@ function sampleVars(event: string): Record<string, string> {
           { invoiceNo: 'FAC-202605-D4E5F6', orderId: 'cmexemple2', date: new Date(2026, 4, 24), total: 89.95, paid: 0, status: 'UNPAID' },
         ],
         totalBilled: 339.95, totalPaid: 100, balance: 239.95, creditLimit: 1000,
-      })
+      }, brand)
     case 'final_invoice':
-      return EmailService.invoiceVars(sampleInvoice(true))
+      return EmailService.invoiceVars(sampleInvoice(true), brand)
     case 'purchase_invoice':
     default:
-      return EmailService.invoiceVars(sampleInvoice(false))
+      return EmailService.invoiceVars(sampleInvoice(false), brand)
   }
 }
 

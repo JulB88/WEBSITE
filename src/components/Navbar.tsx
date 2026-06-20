@@ -10,7 +10,12 @@ import CartSidebar from './CartSidebar'
 
 const STAFF_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CUSTOMER_SERVICE']
 
-export default function Navbar() {
+interface NavbarProps {
+  logoUrl?: string
+  nameShort?: string
+}
+
+export default function Navbar({ logoUrl = '/dsf-logo.png', nameShort = 'DSF' }: NavbarProps) {
   const { data: session } = useSession()
   const { t, lang, setLang } = useI18n()
   const [isCartOpen, setIsCartOpen] = useState(false)
@@ -45,15 +50,15 @@ export default function Navbar() {
   return (
     <>
       {/* Top accent bar */}
-      <div style={{ height: '4px', backgroundColor: '#e51937' }} />
+      <div style={{ height: '4px', backgroundColor: 'var(--brand-primary)' }} />
 
-      <nav style={{ backgroundColor: '#1f2232', position: 'sticky', top: 0, zIndex: 40 }}>
+      <nav style={{ backgroundColor: 'var(--brand-dark)', position: 'sticky', top: 0, zIndex: 40 }}>
         <div className="container">
           <div className="flex items-center justify-between" style={{ height: '72px' }}>
 
             {/* Logo */}
             <Link href="/" className="flex items-center" style={{ textDecoration: 'none' }}>
-              <Image src="/dsf-logo.png" alt="DSF" width={120} height={42} style={{ objectFit: 'contain' }} priority />
+              <Image src={logoUrl} alt={nameShort} width={120} height={42} style={{ objectFit: 'contain' }} priority />
             </Link>
 
             {/* Desktop nav links */}
@@ -66,7 +71,7 @@ export default function Navbar() {
                   key={href}
                   href={href}
                   style={linkStyle}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
+                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--brand-primary)')}
                   onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
                 >
                   {label}
@@ -87,7 +92,7 @@ export default function Navbar() {
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      color: lang === l ? '#e51937' : 'rgba(255,255,255,0.55)',
+                      color: lang === l ? 'var(--brand-primary)' : 'rgba(255,255,255,0.55)',
                       fontWeight: lang === l ? 700 : 500,
                       fontSize: '0.72rem',
                       letterSpacing: '0.06em',
@@ -107,7 +112,7 @@ export default function Navbar() {
                 onClick={() => setIsCartOpen(true)}
                 aria-label={t('cart_title')}
                 style={{ position: 'relative', padding: '8px', color: '#fff', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--brand-primary)')}
                 onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -116,7 +121,7 @@ export default function Navbar() {
                 {itemCount > 0 && (
                   <span style={{
                     position: 'absolute', top: 0, right: 0,
-                    backgroundColor: '#e51937', color: '#fff',
+                    backgroundColor: 'var(--brand-primary)', color: '#fff',
                     fontSize: '0.65rem', width: 18, height: 18,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontWeight: 700,
@@ -133,9 +138,9 @@ export default function Navbar() {
                     {isStaff && (
                       <Link
                         href="/dashboard"
-                        style={{ backgroundColor: '#e51937', color: '#fff', padding: '6px 16px', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}
-                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#c0102a')}
-                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#e51937')}
+                        style={{ backgroundColor: 'var(--brand-primary)', color: '#fff', padding: '6px 16px', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--brand-primary-dark)')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--brand-primary)')}
                       >
                         {t('nav_dashboard')}
                       </Link>
@@ -156,7 +161,7 @@ export default function Navbar() {
                           alignItems: 'center',
                           gap: '6px',
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
+                        onMouseEnter={e => (e.currentTarget.style.color = 'var(--brand-primary)')}
                         onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
                       >
                         <svg style={{ width: 16, height: 16 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,12 +179,12 @@ export default function Navbar() {
                         <div style={{
                           position: 'absolute', top: '100%', right: 0,
                           backgroundColor: '#fff', border: '1px solid #e5e7eb',
-                          borderTop: '3px solid #e51937',
+                          borderTop: '3px solid var(--brand-primary)',
                           minWidth: 200, zIndex: 50,
                           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                         }}>
-                          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f3f4f6' }}>
-                            <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1f2232', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--brand-bg)' }}>
+                            <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--brand-dark)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                               {session.user.name}
                             </p>
                             <p style={{ fontSize: '0.72rem', color: '#6b7280', marginTop: 2 }}>{session.user.email}</p>
@@ -193,16 +198,16 @@ export default function Navbar() {
                               href={href}
                               onClick={() => setIsAccountOpen(false)}
                               style={{ display: 'block', padding: '0.65rem 1rem', fontSize: '0.82rem', fontWeight: 500, color: '#374151', textDecoration: 'none', transition: 'background 0.15s' }}
-                              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f9fafb'; e.currentTarget.style.color = '#e51937' }}
+                              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f9fafb'; e.currentTarget.style.color = 'var(--brand-primary)' }}
                               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#374151' }}
                             >
                               {label}
                             </Link>
                           ))}
-                          <div style={{ borderTop: '1px solid #f3f4f6' }}>
+                          <div style={{ borderTop: '1px solid var(--brand-bg)' }}>
                             <button
                               onClick={() => { signOut({ callbackUrl: '/' }); setIsAccountOpen(false) }}
-                              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '0.65rem 1rem', fontSize: '0.82rem', fontWeight: 500, color: '#e51937', background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}
+                              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '0.65rem 1rem', fontSize: '0.82rem', fontWeight: 500, color: 'var(--brand-primary)', background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}
                               onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#fef2f2')}
                               onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                             >
@@ -218,16 +223,16 @@ export default function Navbar() {
                     <Link
                       href="/auth/login"
                       style={linkStyle}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#e51937')}
+                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--brand-primary)')}
                       onMouseLeave={e => (e.currentTarget.style.color = '#fff')}
                     >
                       {t('nav_login')}
                     </Link>
                     <Link
                       href="/auth/register"
-                      style={{ backgroundColor: '#e51937', color: '#fff', padding: '8px 20px', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}
-                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#c0102a')}
-                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#e51937')}
+                      style={{ backgroundColor: 'var(--brand-primary)', color: '#fff', padding: '8px 20px', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--brand-primary-dark)')}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--brand-primary)')}
                     >
                       {t('nav_register')}
                     </Link>
@@ -274,14 +279,14 @@ export default function Navbar() {
                     <Link href="/account" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>{t('nav_account')}</Link>
                     <Link href="/account/orders" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>{t('nav_orders')}</Link>
                     {isStaff && (
-                      <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#e51937', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}>{t('nav_dashboard')}</Link>
+                      <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: 'var(--brand-primary)', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}>{t('nav_dashboard')}</Link>
                     )}
-                    <button onClick={() => { signOut({ callbackUrl: '/' }); setIsMobileMenuOpen(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 0', color: '#e51937', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500 }}>{t('nav_logout')}</button>
+                    <button onClick={() => { signOut({ callbackUrl: '/' }); setIsMobileMenuOpen(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 0', color: 'var(--brand-primary)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500 }}>{t('nav_logout')}</button>
                   </>
                 ) : (
                   <>
                     <Link href="/auth/login"    onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#fff', fontSize: '0.85rem', textDecoration: 'none' }}>{t('nav_login')}</Link>
-                    <Link href="/auth/register" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: '#e51937', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none' }}>{t('nav_register')}</Link>
+                    <Link href="/auth/register" onClick={() => setIsMobileMenuOpen(false)} style={{ display: 'block', padding: '8px 0', color: 'var(--brand-primary)', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none' }}>{t('nav_register')}</Link>
                   </>
                 )}
                 {/* Mobile lang toggle */}
@@ -290,7 +295,7 @@ export default function Navbar() {
                     <button
                       key={l}
                       onClick={() => setLang(l)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: lang === l ? '#e51937' : 'rgba(255,255,255,0.55)', fontWeight: lang === l ? 700 : 500, fontSize: '0.8rem', textTransform: 'uppercase', padding: '4px 0' }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: lang === l ? 'var(--brand-primary)' : 'rgba(255,255,255,0.55)', fontWeight: lang === l ? 700 : 500, fontSize: '0.8rem', textTransform: 'uppercase', padding: '4px 0' }}
                     >
                       {l.toUpperCase()}
                     </button>

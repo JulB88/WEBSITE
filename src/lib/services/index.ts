@@ -1,4 +1,6 @@
 export { SettingsService } from './SettingsService'
+export { BrandService } from './BrandService'
+export type { Brand } from './BrandService'
 export { ProductService }  from './ProductService'
 export { OrderService }    from './OrderService'
 export { CustomerService } from './CustomerService'

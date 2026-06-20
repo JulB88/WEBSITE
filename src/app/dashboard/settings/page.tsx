@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
+import TestSendButton from '@/components/dashboard/TestSendButton'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -266,8 +267,6 @@ export default function SettingsPage() {
   const [stripeDetail, setStripeDetail] = useState('')
   const [bcStatus, setBcStatus] = useState<TestStatus>('idle')
   const [bcDetail, setBcDetail] = useState('')
-  const [emailStatus, setEmailStatus] = useState<TestStatus>('idle')
-  const [emailDetail, setEmailDetail] = useState('')
   const [syncMsg, setSyncMsg]   = useState('')
 
   useEffect(() => {
@@ -316,14 +315,15 @@ export default function SettingsPage() {
     } catch { setBcStatus('error') }
   }
 
-  async function testEmail() {
-    setEmailStatus('loading'); setEmailDetail('')
-    try {
-      const res = await fetch('/api/admin/settings/test-email', { method: 'POST' })
-      const d   = await res.json()
-      setEmailStatus(d.ok ? 'ok' : 'error')
-      setEmailDetail(d.message ?? (d.ok ? 'Envoyé' : 'Échec'))
-    } catch { setEmailStatus('error'); setEmailDetail('Erreur réseau') }
+  async function runEmailTest(signal: AbortSignal): Promise<{ ok: boolean; message: string }> {
+    // Sauvegarder d'abord pour tester la config courante
+    await fetch('/api/admin/settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings }), signal,
+    })
+    const res = await fetch('/api/admin/settings/test-email', { method: 'POST', signal })
+    const d = await res.json()
+    return { ok: !!d.ok, message: d.message ?? (d.ok ? 'Courriel envoyé ✓' : 'Échec') }
   }
 
   if (loading) return <div className="p-8 text-gray-400">Chargement…</div>
@@ -427,13 +427,14 @@ export default function SettingsPage() {
         {canEditCredentials && (
           <SectionCard icon="📧" title="Courriels transactionnels (SMTP)"
             subtitle="Factures, confirmations de paiement et états de compte — envoyés depuis ta boîte courriel">
-            <div className="flex items-center gap-3 mb-4">
-              <StatusBadge status={emailStatus} okMsg={emailDetail || 'Envoyé'} errMsg={emailDetail || 'Échec'} />
-              <button onClick={testEmail} disabled={emailStatus === 'loading'}
-                className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-                Tester l'envoi
-              </button>
-              <span className="text-xs text-gray-400">Sauvegarde d'abord, puis teste — un courriel est envoyé à ton adresse.</span>
+            <div className="mb-4">
+              <TestSendButton
+                onTest={runEmailTest}
+                label="Tester l'envoi"
+                disabled={!(settings.smtp_host && settings.smtp_user && settings.smtp_password)}
+                disabledReason="Remplis le serveur, le port, l'utilisateur et le mot de passe ci-dessous (le test les sauvegarde automatiquement)."
+              />
+              <p className="text-xs text-gray-400 mt-1.5">Un courriel de test est envoyé à ton adresse. ✓ vert = réussi, ✗ rouge = problème (ou aucune confirmation après 15 s).</p>
             </div>
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
