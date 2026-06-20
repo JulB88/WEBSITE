@@ -40,11 +40,13 @@ const SAMPLE_SCALARS: Record<string, Record<string, string>> = {
   purchase_invoice: {
     companyName: 'Construction Tremblay inc.', customerName: 'Jean Tremblay',
     invoiceNo: 'FAC-202606-A1B2C3', orderId: 'cmexempleorder123',
-    date: '2026-06-15', total: '163.40 $', paymentMethodLabel: 'Portée au compte — une facture finale suivra',
+    date: '2026-06-15', subtotal: '142.15 $', gst: '7.11 $', qst: '14.18 $', total: '163.40 $',
+    paymentMethodLabel: 'Portée au compte — une facture finale suivra',
   },
   final_invoice: {
     companyName: 'Construction Tremblay inc.', customerName: 'Jean Tremblay',
-    invoiceNo: 'FAC-202606-A1B2C3', orderId: 'cmexempleorder123', date: '2026-06-15', total: '163.40 $',
+    invoiceNo: 'FAC-202606-A1B2C3', orderId: 'cmexempleorder123', date: '2026-06-15',
+    subtotal: '142.15 $', gst: '7.11 $', qst: '14.18 $', total: '163.40 $',
   },
   payment_confirmation: {
     companyName: 'Construction Tremblay inc.', customerName: 'Jean Tremblay',
@@ -83,7 +85,12 @@ function sampleLinesTable(b: Brand): string {
 <tbody>
 <tr><td style="padding:8px 12px;border-bottom:1px solid #eee;">Panneau de gypse 1/2"</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">10</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">12.95 $</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">129.50 $</td></tr>
 </tbody>
-<tfoot><tr><td colspan="3" style="padding:12px;text-align:right;font-weight:700;color:${b.colorDark};">TOTAL</td><td style="padding:12px;text-align:right;font-weight:900;color:${b.colorPrimary};font-size:16px;">163.40 $</td></tr></tfoot></table>`
+<tfoot>
+<tr><td colspan="3" style="padding:6px 12px;text-align:right;color:#6b7280;">Sous-total</td><td style="padding:6px 12px;text-align:right;">142.15 $</td></tr>
+<tr><td colspan="3" style="padding:6px 12px;text-align:right;color:#6b7280;">TPS</td><td style="padding:6px 12px;text-align:right;">7.11 $</td></tr>
+<tr><td colspan="3" style="padding:6px 12px;text-align:right;color:#6b7280;">TVQ</td><td style="padding:6px 12px;text-align:right;">14.18 $</td></tr>
+<tr><td colspan="3" style="padding:12px;text-align:right;font-weight:700;color:${b.colorDark};border-top:2px solid ${b.colorDark};">TOTAL</td><td style="padding:12px;text-align:right;font-weight:900;color:${b.colorPrimary};font-size:16px;border-top:2px solid ${b.colorDark};">163.40 $</td></tr>
+</tfoot></table>`
 }
 function sampleStatementTable(b: Brand): string {
   return `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:16px 0;">

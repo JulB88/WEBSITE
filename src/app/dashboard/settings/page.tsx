@@ -25,6 +25,10 @@ interface Settings {
   smtp_user?: string
   smtp_password?: string
   email_from?: string
+  tax_gst_rate?: string
+  tax_qst_rate?: string
+  tax_gst_number?: string
+  tax_qst_number?: string
 }
 
 type TestStatus = 'idle' | 'loading' | 'ok' | 'error'
@@ -268,6 +272,7 @@ export default function SettingsPage() {
   const [bcStatus, setBcStatus] = useState<TestStatus>('idle')
   const [bcDetail, setBcDetail] = useState('')
   const [syncMsg, setSyncMsg]   = useState('')
+  const [tab, setTab]           = useState('general')
 
   useEffect(() => {
     fetch('/api/admin/settings')
@@ -330,9 +335,20 @@ export default function SettingsPage() {
 
   const siteLockEnabled = settings.site_lock_enabled !== 'false'
 
+  // Onglets selon le rôle
+  const tabs = [
+    { key: 'general',  label: '🏪 Général',          show: canEditCredentials },
+    { key: 'security', label: '🔒 Sécurité',         show: canEditSiteLock || canEditTOTP },
+    { key: 'payments', label: '💳 Paiements',        show: canEditCredentials },
+    { key: 'email',    label: '📧 Courriels',        show: canEditCredentials },
+    { key: 'taxes',    label: '🧾 Taxes',            show: canEditCredentials },
+    { key: 'bc',       label: '🔷 Business Central',  show: true },
+  ].filter((t) => t.show)
+  const activeTab = tabs.find((t) => t.key === tab) ? tab : (tabs[0]?.key ?? 'bc')
+
   return (
     <div className="p-8 max-w-3xl">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
           <p className="text-gray-500 text-sm mt-0.5">
@@ -350,13 +366,25 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* Barre d'onglets */}
+      <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-6">
+        {tabs.map((t) => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === t.key ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+            }`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <div className="space-y-6">
 
-        {/* ── TOTP — ADMIN+ seulement ── */}
-        {canEditTOTP && <TotpSection />}
+        {/* ── SÉCURITÉ : TOTP + Accès au site ── */}
+        {activeTab === 'security' && canEditTOTP && <TotpSection />}
 
         {/* ── Accès au site — ADMIN+ ── */}
-        {canEditSiteLock && (
+        {activeTab === 'security' && canEditSiteLock && (
           <SectionCard icon="🔒" title="Accès au site"
             subtitle="Contrôle si le site est protégé par mot de passe ou public">
             <div className="flex items-center gap-2 mb-4">
@@ -385,7 +413,7 @@ export default function SettingsPage() {
         )}
 
         {/* ── Général — ADMIN+ ── */}
-        {canEditCredentials && (
+        {activeTab === 'general' && canEditCredentials && (
           <SectionCard icon="🏪" title="Général" subtitle="Informations de base du magasin">
             <div className="space-y-4">
               <Field label="Nom du magasin" name="store_name" value={settings.store_name ?? ''} onChange={handleChange} placeholder="DSF" />
@@ -406,7 +434,7 @@ export default function SettingsPage() {
         )}
 
         {/* ── Stripe — ADMIN+ ── */}
-        {canEditCredentials && (
+        {activeTab === 'payments' && canEditCredentials && (
           <SectionCard icon="💳" title="Stripe Payments" subtitle="Paiements par carte de crédit">
             <div className="flex items-center gap-3 mb-4">
               <StatusBadge status={stripeStatus} okMsg={stripeDetail || 'Connecté'} errMsg={stripeDetail || 'Connexion échouée'} />
@@ -424,7 +452,7 @@ export default function SettingsPage() {
         )}
 
         {/* ── Courriels (SMTP) — ADMIN+ ── */}
-        {canEditCredentials && (
+        {activeTab === 'email' && canEditCredentials && (
           <SectionCard icon="📧" title="Courriels transactionnels (SMTP)"
             subtitle="Factures, confirmations de paiement et états de compte — envoyés depuis ta boîte courriel">
             <div className="mb-4">
@@ -462,7 +490,33 @@ export default function SettingsPage() {
           </SectionCard>
         )}
 
+        {/* ── Taxes — ADMIN+ ── */}
+        {activeTab === 'taxes' && canEditCredentials && (
+          <SectionCard icon="🧾" title="Taxes de vente (TPS / TVQ)"
+            subtitle="Utilisées pour la facturation et la comptabilité. Prix taxe incluse.">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Taux TPS" name="tax_gst_rate" value={settings.tax_gst_rate ?? ''} onChange={handleChange}
+                  placeholder="0.05" hint="0.05 = 5 %" />
+                <Field label="Taux TVQ" name="tax_qst_rate" value={settings.tax_qst_rate ?? ''} onChange={handleChange}
+                  placeholder="0.09975" hint="0.09975 = 9,975 %" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="N° d'inscription TPS" name="tax_gst_number" value={settings.tax_gst_number ?? ''} onChange={handleChange}
+                  placeholder="123456789 RT0001" />
+                <Field label="N° d'inscription TVQ" name="tax_qst_number" value={settings.tax_qst_number ?? ''} onChange={handleChange}
+                  placeholder="1234567890 TQ0001" />
+              </div>
+              <p className="text-xs text-gray-400">
+                Les prix affichés sont considérés taxe incluse. La taxe est ventilée automatiquement sur les
+                factures et dans les rapports de comptabilité (Comptabilité → Taxes à remettre).
+              </p>
+            </div>
+          </SectionCard>
+        )}
+
         {/* ── Business Central — crédentiels ADMIN+ / synchro MANAGER+ ── */}
+        {activeTab === 'bc' && (
         <SectionCard icon="🔷" title="Business Central" subtitle="Synchronisation produits, commandes et clients">
           {canEditCredentials && (
             <>
@@ -513,6 +567,7 @@ export default function SettingsPage() {
             </div>
           )}
         </SectionCard>
+        )}
 
       </div>
 

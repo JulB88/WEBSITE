@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer'
 import { prisma } from '@/lib/prisma'
 import { SettingsService } from './SettingsService'
 import { BrandService, type Brand } from './BrandService'
+import { TaxService, type TaxRates, type TaxBreakdown } from './TaxService'
 
 /**
  * EmailService — envoi SMTP (Nodemailer) + moteur de modèles & workflows.
@@ -81,13 +82,13 @@ export const EMAIL_EVENTS: EmailEventMeta[] = [
     event: 'purchase_invoice',
     label: "Confirmation d'achat",
     description: "Envoyé au client dès qu'une commande est passée (par carte ou portée au compte).",
-    vars: ['companyName', 'customerName', 'invoiceNo', 'orderId', 'date', 'total', 'paymentMethodLabel', 'lines_table'],
+    vars: ['companyName', 'customerName', 'invoiceNo', 'orderId', 'date', 'subtotal', 'gst', 'qst', 'total', 'paymentMethodLabel', 'lines_table'],
   },
   {
     event: 'final_invoice',
     label: 'Facture finale (au compte)',
     description: "Envoyé quand le personnel facture une commande portée au compte.",
-    vars: ['companyName', 'customerName', 'invoiceNo', 'orderId', 'date', 'total', 'lines_table'],
+    vars: ['companyName', 'customerName', 'invoiceNo', 'orderId', 'date', 'subtotal', 'gst', 'qst', 'total', 'lines_table'],
   },
   {
     event: 'payment_confirmation',
@@ -317,8 +318,8 @@ export class EmailService {
   // ─── Builders de variables → dispatch ────────────────────────────────────────
 
   static async dispatchInvoice(event: 'purchase_invoice' | 'final_invoice', to: string, data: InvoiceData): Promise<boolean> {
-    const brand = await BrandService.get()
-    return this.dispatch(event, to, { ...this.invoiceVars(data, brand), ...brandTokens(brand) })
+    const [brand, rates] = await Promise.all([BrandService.get(), TaxService.getRates()])
+    return this.dispatch(event, to, { ...this.invoiceVars(data, brand, rates), ...brandTokens(brand) })
   }
 
   static async dispatchPayment(to: string, data: PaymentData): Promise<boolean> {
@@ -333,13 +334,14 @@ export class EmailService {
 
   // ─── Construction des variables ──────────────────────────────────────────────
 
-  static invoiceVars(data: InvoiceData, brand: Brand = BrandService.DEFAULTS): Record<string, string> {
+  static invoiceVars(data: InvoiceData, brand: Brand = BrandService.DEFAULTS, rates: TaxRates = TaxService.DEFAULTS): Record<string, string> {
     const paymentMethodLabel =
       data.paymentMethod === 'CARD'
         ? 'Payée par carte de crédit'
         : data.isFinal
           ? 'Portée au compte — paiement selon vos modalités'
           : 'Portée au compte — une facture finale suivra'
+    const tax = TaxService.breakdownFromTotal(data.total, rates)
     return {
       customerName:       data.customerName,
       companyName:        data.companyName || data.customerName,
@@ -347,8 +349,11 @@ export class EmailService {
       orderId:            data.orderId,
       date:               data.date.toLocaleDateString('fr-CA'),
       total:              CURRENCY(data.total),
+      subtotal:           CURRENCY(tax.subtotal),
+      gst:                CURRENCY(tax.gst),
+      qst:                CURRENCY(tax.qst),
+      lines_table:        linesTableHtml(data.lines, brand, tax),
       paymentMethodLabel,
-      lines_table:        linesTableHtml(data.lines, brand),
     }
   }
 
@@ -382,17 +387,17 @@ export class EmailService {
 
   /** Aperçu d'un modèle d'événement (corps encadré par la mise en page enregistrée). */
   static async renderEmailPreview(subject: string, bodyHtml: string, event: string): Promise<{ subject: string; html: string }> {
-    const brand = await BrandService.get()
-    const vars = { ...sampleVars(event, brand), ...brandTokens(brand) }
+    const [brand, rates] = await Promise.all([BrandService.get(), TaxService.getRates()])
+    const vars = { ...sampleVars(event, brand, rates), ...brandTokens(brand) }
     const inner = renderTemplate(bodyHtml, vars)
     return { subject: renderTemplate(subject, vars), html: await this.wrapInLayout(inner) }
   }
 
   /** Aperçu du modèle de mise en page lui-même, avec un corps de courriel d'exemple. */
   static async renderLayoutPreview(layoutBody: string): Promise<{ subject: string; html: string }> {
-    const brand = await BrandService.get()
+    const [brand, rates] = await Promise.all([BrandService.get(), TaxService.getRates()])
     const tokens = brandTokens(brand)
-    const sampleInner = renderTemplate(DEFAULT_TEMPLATES[0].body, { ...sampleVars('purchase_invoice', brand), ...tokens })
+    const sampleInner = renderTemplate(DEFAULT_TEMPLATES[0].body, { ...sampleVars('purchase_invoice', brand, rates), ...tokens })
     const filled = renderTemplate(layoutBody, {
       content: sampleInner,
       year: String(new Date().getFullYear()),
@@ -429,7 +434,7 @@ function renderTemplate(tpl: string, vars: Record<string, string>): string {
   })
 }
 
-function linesTableHtml(lines: InvoiceLine[], brand: Brand): string {
+function linesTableHtml(lines: InvoiceLine[], brand: Brand, tax?: TaxBreakdown): string {
   const rows = lines.map((l) => `
     <tr>
       <td style="padding:8px 12px;border-bottom:1px solid #eee;">${escapeHtml(l.name)}</td>
@@ -438,6 +443,20 @@ function linesTableHtml(lines: InvoiceLine[], brand: Brand): string {
       <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">${CURRENCY(l.unitPrice * l.quantity)}</td>
     </tr>`).join('')
   const total = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0)
+
+  // Pied : ventilation des taxes si fournie, sinon total seul
+  const footer = tax
+    ? `<tr><td colspan="3" style="padding:6px 12px;text-align:right;color:#6b7280;">Sous-total</td>
+         <td style="padding:6px 12px;text-align:right;">${CURRENCY(tax.subtotal)}</td></tr>
+       <tr><td colspan="3" style="padding:6px 12px;text-align:right;color:#6b7280;">TPS</td>
+         <td style="padding:6px 12px;text-align:right;">${CURRENCY(tax.gst)}</td></tr>
+       <tr><td colspan="3" style="padding:6px 12px;text-align:right;color:#6b7280;">TVQ</td>
+         <td style="padding:6px 12px;text-align:right;">${CURRENCY(tax.qst)}</td></tr>
+       <tr><td colspan="3" style="padding:12px;text-align:right;font-weight:700;color:${brand.colorDark};border-top:2px solid ${brand.colorDark};">TOTAL</td>
+         <td style="padding:12px;text-align:right;font-weight:900;color:${brand.colorPrimary};font-size:16px;border-top:2px solid ${brand.colorDark};">${CURRENCY(tax.total)}</td></tr>`
+    : `<tr><td colspan="3" style="padding:12px;text-align:right;font-weight:700;color:${brand.colorDark};">TOTAL</td>
+         <td style="padding:12px;text-align:right;font-weight:900;color:${brand.colorPrimary};font-size:16px;">${CURRENCY(total)}</td></tr>`
+
   return `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:16px 0;">
     <thead><tr style="background:${brand.colorDark};color:#fff;">
       <th style="padding:10px 12px;text-align:left;">Produit</th>
@@ -446,10 +465,7 @@ function linesTableHtml(lines: InvoiceLine[], brand: Brand): string {
       <th style="padding:10px 12px;text-align:right;">Total</th>
     </tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr>
-      <td colspan="3" style="padding:12px;text-align:right;font-weight:700;color:${brand.colorDark};">TOTAL</td>
-      <td style="padding:12px;text-align:right;font-weight:900;color:${brand.colorPrimary};font-size:16px;">${CURRENCY(total)}</td>
-    </tr></tfoot>
+    <tfoot>${footer}</tfoot>
   </table>`
 }
 
@@ -480,7 +496,7 @@ function statementTableHtml(lines: StatementOrderLine[], brand: Brand): string {
 }
 
 /** Données d'exemple pour l'aperçu / le test d'un modèle. */
-function sampleVars(event: string, brand: Brand = BrandService.DEFAULTS): Record<string, string> {
+function sampleVars(event: string, brand: Brand = BrandService.DEFAULTS, rates: TaxRates = TaxService.DEFAULTS): Record<string, string> {
   switch (event) {
     case 'payment_confirmation':
       return EmailService.paymentVars({
@@ -497,10 +513,10 @@ function sampleVars(event: string, brand: Brand = BrandService.DEFAULTS): Record
         totalBilled: 339.95, totalPaid: 100, balance: 239.95, creditLimit: 1000,
       }, brand)
     case 'final_invoice':
-      return EmailService.invoiceVars(sampleInvoice(true), brand)
+      return EmailService.invoiceVars(sampleInvoice(true), brand, rates)
     case 'purchase_invoice':
     default:
-      return EmailService.invoiceVars(sampleInvoice(false), brand)
+      return EmailService.invoiceVars(sampleInvoice(false), brand, rates)
   }
 }
 
