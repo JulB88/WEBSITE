@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import AccountingConfig from '@/components/dashboard/AccountingConfig'
+import JournalEntries from '@/components/dashboard/JournalEntries'
 
-type Tab = 'summary' | 'sales' | 'receipts' | 'tax' | 'aging' | 'journal' | 'trial' | 'config'
+type Tab = 'summary' | 'sales' | 'receipts' | 'tax' | 'aging' | 'entries' | 'journal' | 'trial' | 'config'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'summary',  label: 'Sommaire' },
@@ -11,6 +12,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'receipts', label: 'Encaissements' },
   { key: 'tax',      label: 'Taxes à remettre' },
   { key: 'aging',    label: 'Âge des comptes' },
+  { key: 'entries',  label: 'Écritures' },
   { key: 'journal',  label: 'Grand livre' },
   { key: 'trial',    label: 'Balance de vérification' },
   { key: 'config',   label: '⚙ Paramètres' },
@@ -38,7 +40,7 @@ export default function AccountingPage() {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    if (tab === 'config') { setLoading(false); return } // le panneau de config gère ses données
+    if (tab === 'config' || tab === 'entries') { setLoading(false); return } // ces panneaux gèrent leurs données
     setLoading(true)
     try {
       const res = await fetch(`/api/dashboard/accounting?report=${tab}&from=${from}&to=${to}`)
@@ -67,8 +69,8 @@ export default function AccountingPage() {
         </p>
       </div>
 
-      {/* Période — masquée dans l'onglet Paramètres */}
-      {tab !== 'config' && (
+      {/* Période — masquée dans les onglets Paramètres / Écritures */}
+      {tab !== 'config' && tab !== 'entries' && (
       <div className="flex flex-wrap items-end gap-3 mb-5 bg-white border border-gray-200 rounded-xl p-4">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Du</label>
@@ -112,6 +114,8 @@ export default function AccountingPage() {
 
       {tab === 'config' ? (
         <AccountingConfig />
+      ) : tab === 'entries' ? (
+        <JournalEntries />
       ) : loading ? (
         <div className="py-20 text-center text-gray-400">Chargement…</div>
       ) : (

@@ -23,7 +23,9 @@ export const CHART_OF_ACCOUNTS = [
   { code: '4000', name: 'Ventes',           type: 'Produit' },
 ] as const
 
-const ACC = { CASH: '1000', AR: '1100', GST: '2310', QST: '2320', SALES: '4000' }
+const ACCOUNT_TYPE_LABEL: Record<string, string> = {
+  ASSET: 'Actif', LIABILITY: 'Passif', EQUITY: 'Capitaux propres', REVENUE: 'Produits', EXPENSE: 'Charges',
+}
 
 export interface Period { from: Date; to: Date }
 
@@ -46,7 +48,6 @@ export interface TrialBalanceRow {
 
 const round = (n: number) => Math.round(n * 100) / 100
 const dstr  = (d: Date) => d.toISOString().slice(0, 10)
-const accName = (code: string) => CHART_OF_ACCOUNTS.find((a) => a.code === code)?.name ?? code
 
 export class AccountingService {
   /** Commandes reconnues comme ventes (hors panier en attente / annulées). */
@@ -185,53 +186,48 @@ export class AccountingService {
     return { rows, totals }
   }
 
-  // ─── Écritures de journal (grand livre) ──────────────────────────────────────
-  static async journalEntries(period: Period, rates: TaxRates): Promise<JournalLine[]> {
-    const lines: JournalLine[] = []
-    const push = (date: string, ref: string, account: string, label: string, debit: number, credit: number) =>
-      lines.push({ date, ref, account, accountName: accName(account), label, debit: round(debit), credit: round(credit) })
-
-    // Ventes
-    const orders = await this.recognizedOrders(period)
-    for (const o of orders) {
-      const b = TaxService.breakdownFromTotal(o.totalAmount, rates)
-      const date = dstr(o.invoicedAt ?? o.createdAt)
-      const ref = o.invoiceNo ?? o.id.slice(-8).toUpperCase()
-      const debitAcct = o.paymentMethod === 'CARD' ? ACC.CASH : ACC.AR
-      push(date, ref, debitAcct, `Vente — ${this.customerName(o)}`, b.total, 0)
-      push(date, ref, ACC.SALES, 'Ventes', 0, b.subtotal)
-      if (b.gst) push(date, ref, ACC.GST, 'TPS perçue', 0, b.gst)
-      if (b.qst) push(date, ref, ACC.QST, 'TVQ perçue', 0, b.qst)
-    }
-
-    // Encaissements (paiements au compte)
-    const payments = await prisma.payment.findMany({
-      where: { createdAt: { gte: period.from, lte: period.to } },
-      include: { order: { select: { invoiceNo: true, user: { select: { name: true, email: true } }, businessCustomer: { select: { companyName: true } } } } },
-      orderBy: { createdAt: 'asc' },
+  // ─── Écritures de journal (grand livre) — lues depuis les écritures postées ───
+  static async journalEntries(period: Period, _rates?: TaxRates): Promise<JournalLine[]> {
+    const rows = await prisma.journalLine.findMany({
+      where: { entry: { date: { gte: period.from, lte: period.to } } },
+      include: {
+        account: { select: { code: true, name: true } },
+        entry: { select: { number: true, date: true, sourceRef: true } },
+      },
+      orderBy: [{ entry: { date: 'asc' } }, { entry: { number: 'asc' } }],
     })
-    for (const p of payments) {
-      const date = dstr(p.createdAt)
-      const ref = p.order.invoiceNo ?? '—'
-      const cust = p.order.businessCustomer?.companyName ?? p.order.user.name ?? p.order.user.email
-      push(date, ref, ACC.CASH, `Encaissement — ${cust}`, p.amount, 0)
-      push(date, ref, ACC.AR, 'Comptes clients', 0, p.amount)
-    }
-
-    return lines.sort((a, b) => a.date.localeCompare(b.date))
+    return rows.map((l) => ({
+      date: dstr(l.entry.date),
+      ref: l.entry.sourceRef ?? `#${l.entry.number}`,
+      account: l.account.code,
+      accountName: l.account.name,
+      label: l.description ?? '',
+      debit: Number(l.baseDebit),
+      credit: Number(l.baseCredit),
+    }))
   }
 
-  // ─── Balance de vérification ─────────────────────────────────────────────────
-  static async trialBalance(period: Period, rates: TaxRates): Promise<{ rows: TrialBalanceRow[]; totalDebit: number; totalCredit: number }> {
-    const lines = await this.journalEntries(period, rates)
+  // ─── Balance de vérification — depuis les écritures postées ───────────────────
+  static async trialBalance(period: Period, _rates?: TaxRates): Promise<{ rows: TrialBalanceRow[]; totalDebit: number; totalCredit: number }> {
+    const [accounts, lines] = await Promise.all([
+      prisma.ledgerAccount.findMany({ orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }] }),
+      prisma.journalLine.findMany({
+        where: { entry: { date: { gte: period.from, lte: period.to } } },
+        include: { account: { select: { code: true } } },
+      }),
+    ])
     const map = new Map<string, TrialBalanceRow>()
-    for (const acc of CHART_OF_ACCOUNTS) map.set(acc.code, { code: acc.code, name: acc.name, type: acc.type, debit: 0, credit: 0 })
+    for (const a of accounts) map.set(a.code, { code: a.code, name: a.name, type: ACCOUNT_TYPE_LABEL[a.type] ?? a.type, debit: 0, credit: 0 })
     for (const l of lines) {
-      const row = map.get(l.account)!
-      row.debit += l.debit
-      row.credit += l.credit
+      const row = map.get(l.account.code)
+      if (!row) continue
+      row.debit += Number(l.baseDebit)
+      row.credit += Number(l.baseCredit)
     }
-    const rows = [...map.values()].map((r) => ({ ...r, debit: round(r.debit), credit: round(r.credit) }))
+    // N'affiche que les comptes ayant de l'activité
+    const rows = [...map.values()]
+      .filter((r) => Math.abs(r.debit) > 0.005 || Math.abs(r.credit) > 0.005)
+      .map((r) => ({ ...r, debit: round(r.debit), credit: round(r.credit) }))
     return {
       rows,
       totalDebit: round(rows.reduce((s, r) => s + r.debit, 0)),

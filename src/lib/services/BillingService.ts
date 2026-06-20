@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { computeOrderTotal } from '@/lib/pricing'
 import { EmailService } from './EmailService'
 import type { InvoiceData, StatementData } from './EmailService'
+import { JournalService } from './JournalService'
 
 export interface CreditStatus {
   creditLimit: number
@@ -251,6 +252,10 @@ export class BillingService {
     this.sendPaymentConfirmation(orderId, amount, newPaid, remainingAfter, order.totalAmount, newStatus)
       .catch((err) => console.error('[billing] Confirmation de paiement échouée (non-fatal):', err))
 
+    // Postage comptable de l'encaissement (Dr Encaisse / Cr Comptes clients — non bloquant)
+    JournalService.postPayment({ paymentId: payment.id, date: new Date(), amount })
+      .catch((err) => console.error('[billing] Postage encaissement échoué (non-fatal):', err))
+
     return { payment, paidAmount: newPaid, paymentStatus: newStatus, remaining: remainingAfter }
   }
 
@@ -440,6 +445,16 @@ export class BillingService {
         },
       })
     }
+
+    // Postage comptable de la vente (Dr Encaisse/Comptes clients — Cr Ventes + taxes ; non bloquant, idempotent)
+    JournalService.postSale({
+      orderId: order.id,
+      date: order.invoicedAt ?? order.createdAt,
+      total: order.totalAmount,
+      toKey: order.paymentMethod === 'CARD' ? 'CASH' : 'ACCOUNTS_RECEIVABLE',
+      customerName: order.businessCustomer?.companyName ?? order.user.name ?? order.user.email,
+      businessCustomerId: order.businessCustomerId,
+    }).catch((err) => console.error('[billing] Postage vente échoué (non-fatal):', err))
 
     const data: InvoiceData = {
       invoiceNo: invoiceNo ?? `CMD-${order.id.slice(-6).toUpperCase()}`,

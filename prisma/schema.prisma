@@ -62,6 +62,22 @@ enum FiscalPeriodStatus {
   LOCKED  // Verrouillé définitivement
 }
 
+enum JournalSource {
+  SALE          // Vente (commande facturée)
+  PAYMENT       // Encaissement client
+  BILL          // Facture fournisseur (phase 4)
+  BILL_PAYMENT  // Paiement fournisseur (phase 4)
+  EXPENSE       // Dépense (phase 4)
+  MANUAL        // Écriture manuelle
+  REVERSAL      // Contre-passation
+}
+
+enum JournalStatus {
+  DRAFT   // Brouillon (modifiable)
+  POSTED  // Postée (immuable)
+  VOID    // Annulée (par contre-passation)
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 model User {
@@ -384,6 +400,7 @@ model LedgerAccount {
   mappings        AccountMapping[]
   taxCollectedFor TaxCode[] @relation("TaxCollected")
   taxPaidFor      TaxCode[] @relation("TaxPaid")
+  journalLines    JournalLine[]
 
   @@index([type])
   @@index([parentId])
@@ -459,7 +476,58 @@ model FiscalPeriod {
   startDate    DateTime
   endDate      DateTime
   status       FiscalPeriodStatus @default(OPEN)
+  entries      JournalEntry[]
 
   @@unique([fiscalYearId, name])
   @@index([fiscalYearId])
+}
+
+// ─── Grand livre — écritures en partie double (Phase 2) ──────────────────────
+
+model JournalEntry {
+  id             String        @id @default(cuid())
+  number         Int           @unique          // séquentiel, attribué au postage
+  date           DateTime
+  memo           String?
+  source         JournalSource @default(MANUAL)
+  /// Référence de la source pour l'idempotence : "sale:<orderId>", "payment:<id>"…
+  sourceRef      String?
+  status         JournalStatus @default(POSTED)
+  currencyCode   String        @default("CAD")
+  exchangeRate   Float         @default(1)
+  createdBy      String?
+  postedAt       DateTime?
+  fiscalPeriodId String?
+  /// Si cette écriture en contre-passe une autre
+  reversalOfId   String?
+  createdAt      DateTime      @default(now())
+
+  lines        JournalLine[]
+  fiscalPeriod FiscalPeriod?  @relation(fields: [fiscalPeriodId], references: [id])
+  reversalOf   JournalEntry?  @relation("Reversal", fields: [reversalOfId], references: [id])
+  reversals    JournalEntry[] @relation("Reversal")
+
+  @@unique([source, sourceRef])  // empêche le double-postage d'un même événement
+  @@index([date])
+  @@index([status])
+}
+
+model JournalLine {
+  id                 String        @id @default(cuid())
+  entryId            String
+  entry              JournalEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId          String
+  account            LedgerAccount @relation(fields: [accountId], references: [id])
+  /// Montants en devise de l'écriture
+  debit              Decimal       @default(0) @db.Decimal(14, 2)
+  credit             Decimal       @default(0) @db.Decimal(14, 2)
+  /// Montants convertis en devise de base (pour les rapports)
+  baseDebit          Decimal       @default(0) @db.Decimal(14, 2)
+  baseCredit         Decimal       @default(0) @db.Decimal(14, 2)
+  description        String?
+  taxCodeId          String?
+  businessCustomerId String?
+
+  @@index([entryId])
+  @@index([accountId])
 }

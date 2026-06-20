@@ -141,9 +141,14 @@ export class LedgerService {
     return prisma.accountMapping.update({ where: { key }, data: { accountId } })
   }
 
-  /** Résout le compte associé à un rôle système. Lance une erreur si non mappé. */
+  /** Résout le compte associé à un rôle système. Auto-seed si jamais initialisé. */
   static async accountFor(key: string) {
-    const m = await prisma.accountMapping.findUnique({ where: { key }, include: { account: true } })
+    let m = await prisma.accountMapping.findUnique({ where: { key }, include: { account: true } })
+    if (!m) {
+      // Premières écritures avant toute visite de la page config → seed à la volée
+      await this.seedDefaults()
+      m = await prisma.accountMapping.findUnique({ where: { key }, include: { account: true } })
+    }
     if (!m?.account) throw new Error(`Aucun compte mappé pour « ${key} ». Configure-le dans Comptabilité → Paramètres → Mappages.`)
     return m.account
   }
