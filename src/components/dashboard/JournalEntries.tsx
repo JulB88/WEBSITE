@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 
 interface Account { id: string; code: string; name: string; isActive: boolean }
 interface Line { id: string; debit: string; credit: string; baseDebit: string; baseCredit: string; description: string | null; account: { code: string; name: string } }
-interface Entry { id: string; number: number; date: string; memo: string | null; source: string; status: string; lines: Line[] }
+interface Entry { id: string; number: number; date: string; memo: string | null; source: string; status: string; currencyCode: string; bcSyncedAt: string | null; lines: Line[] }
+interface Currency { code: string; symbol: string; isBase: boolean }
 
 const money = (n: number) => (n ?? 0).toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' $'
 
@@ -19,6 +20,7 @@ const emptyLine = (): FormLine => ({ accountId: '', debit: '', credit: '', descr
 export default function JournalEntries() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [currencies, setCurrencies] = useState<Currency[]>([])
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -27,6 +29,7 @@ export default function JournalEntries() {
   // Formulaire d'écriture manuelle
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [memo, setMemo] = useState('')
+  const [currencyCode, setCurrencyCode] = useState('')
   const [formLines, setFormLines] = useState<FormLine[]>([emptyLine(), emptyLine()])
   const [saving, setSaving] = useState(false)
 
@@ -39,8 +42,11 @@ export default function JournalEntries() {
       ])
       setEntries(j.entries ?? [])
       setAccounts((c.accounts ?? []).filter((a: Account) => a.isActive))
+      const curs: Currency[] = c.currencies ?? []
+      setCurrencies(curs)
+      if (!currencyCode) setCurrencyCode((curs.find((x) => x.isBase)?.code) ?? 'CAD')
     } finally { setLoading(false) }
-  }, [])
+  }, [currencyCode])
   useEffect(() => { load() }, [load])
 
   function flash(m: string) { setMsg(m); setTimeout(() => setMsg(''), 5000) }
@@ -55,7 +61,7 @@ export default function JournalEntries() {
     try {
       const res = await fetch('/api/dashboard/accounting/journal', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'manual', date, memo, lines: formLines.filter((l) => l.accountId && (l.debit || l.credit)) }),
+        body: JSON.stringify({ action: 'manual', date, memo, currencyCode, lines: formLines.filter((l) => l.accountId && (l.debit || l.credit)) }),
       })
       const d = await res.json()
       if (!res.ok) { flash(`✗ ${d.error}`); return }
@@ -75,6 +81,8 @@ export default function JournalEntries() {
     flash(res.ok ? '✓ Écriture contre-passée' : `✗ ${d.error}`)
     if (res.ok) load()
   }
+
+  const baseCode = currencies.find((c) => c.isBase)?.code ?? 'CAD'
 
   if (loading) return <div className="bg-white border border-gray-200 rounded-xl p-6 py-16 text-center text-gray-400">Chargement…</div>
 
@@ -101,6 +109,14 @@ export default function JournalEntries() {
               <label className="block text-xs text-gray-500 mb-1">Description</label>
               <input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="Note de l'écriture" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
+            {currencies.length > 1 && (
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Devise</label>
+                <select value={currencyCode} onChange={(e) => setCurrencyCode(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                  {currencies.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
+                </select>
+              </div>
+            )}
           </div>
           <table className="w-full text-sm mb-2">
             <thead><tr className="text-left text-gray-500 text-xs">
@@ -172,7 +188,10 @@ export default function JournalEntries() {
                     <td className="px-3 py-2">{e.date.slice(0, 10)}</td>
                     <td className="px-3 py-2 text-gray-600">{SOURCE_LABEL[e.source] ?? e.source}</td>
                     <td className="px-3 py-2 text-gray-600">{e.memo ?? '—'}</td>
-                    <td className="px-3 py-2 text-right font-medium">{money(amount)}</td>
+                    <td className="px-3 py-2 text-right font-medium">
+                      {money(amount)}
+                      {e.currencyCode && e.currencyCode !== baseCode && <span className="ml-1 text-xs text-gray-400">({e.currencyCode})</span>}
+                    </td>
                     <td className="px-3 py-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${e.status === 'POSTED' ? 'bg-green-100 text-green-700' : e.status === 'VOID' ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-700'}`}>
                         {e.status === 'POSTED' ? 'Postée' : e.status === 'VOID' ? 'Contre-passée' : 'Brouillon'}

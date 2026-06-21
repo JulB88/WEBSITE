@@ -22,6 +22,7 @@ export class SettingsService {
     'brand_color_primary', 'brand_color_primary_dark', 'brand_color_dark',
     'brand_color_text', 'brand_color_muted', 'brand_color_bg',
     'tax_gst_rate', 'tax_qst_rate', 'tax_gst_number', 'tax_qst_number', 'tax_included',
+    'accounting_bc_sync_enabled', 'bc_journal_batch',
   ])
 
   // ─── Clés chiffrées en BD + masquées en lecture ────────────────────────────

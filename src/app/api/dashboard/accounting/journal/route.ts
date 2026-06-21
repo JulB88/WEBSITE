@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       const entry = await JournalService.manualEntry({
         date: new Date(body.date || Date.now()),
         memo: body.memo?.trim() || undefined,
+        currencyCode: body.currencyCode || undefined,
         createdBy: session.user.email ?? undefined,
         lines: (body.lines ?? []).map((l: any) => ({
           accountId: l.accountId,

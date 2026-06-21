@@ -281,6 +281,41 @@ export class BusinessCentralClient {
     return data.value || []
   }
 
+  // ─── Journal général (export d'écritures comptables) ─────────────────────────
+
+  async listJournals(): Promise<{ id: string; code: string; displayName: string }[]> {
+    const data = await this.request<{ value: { id: string; code: string; displayName: string }[] }>('/journals')
+    return data.value || []
+  }
+
+  /** Trouve un journal par code (ex. "GENERAL") ; retourne le 1er si code absent. */
+  async findJournal(code?: string): Promise<{ id: string; code: string; displayName: string } | null> {
+    const journals = await this.listJournals()
+    if (journals.length === 0) return null
+    if (code) {
+      const match = journals.find((j) => j.code.toUpperCase() === code.toUpperCase())
+      if (match) return match
+    }
+    return journals[0]
+  }
+
+  /** Crée une ligne d'écriture dans un journal BC. amount signé (+ = débit, − = crédit). */
+  async createJournalLine(journalId: string, line: {
+    accountNumber: string; postingDate: string; documentNumber: string; description: string; amount: number
+  }): Promise<unknown> {
+    return this.request(`/journals(${journalId})/journalLines`, {
+      method: 'POST',
+      body: JSON.stringify({
+        accountType: 'G/L Account',
+        accountNumber: line.accountNumber,
+        postingDate: line.postingDate,
+        documentNumber: line.documentNumber.slice(0, 20),
+        description: line.description.slice(0, 100),
+        amount: line.amount,
+      }),
+    })
+  }
+
   // ─── Product Sync ──────────────────────────────────────────────────────────
 
   async syncProductsToDb(): Promise<number> {

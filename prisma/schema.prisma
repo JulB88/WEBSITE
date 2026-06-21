@@ -506,6 +506,9 @@ model JournalEntry {
   fiscalPeriodId String?
   /// Si cette écriture en contre-passe une autre
   reversalOfId   String?
+  /// Synchronisation vers Business Central (optionnelle)
+  bcSyncedAt     DateTime?
+  bcError        String?
   createdAt      DateTime      @default(now())
 
   lines        JournalLine[]

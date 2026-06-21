@@ -4,6 +4,7 @@ import { LedgerService } from './LedgerService'
 import { TaxService } from './TaxService'
 import { CurrencyService } from './CurrencyService'
 import { FiscalService } from './FiscalService'
+import { BcSyncService } from './BcSyncService'
 
 /**
  * JournalService — moteur de postage en partie double.
@@ -70,7 +71,7 @@ export class JournalService {
     const fiscalPeriodId = await FiscalService.assertOpen(input.date)
 
     // Transaction : numéro séquentiel + écriture + lignes
-    return prisma.$transaction(async (tx) => {
+    const entry = await prisma.$transaction(async (tx) => {
       const last = await tx.journalEntry.findFirst({ orderBy: { number: 'desc' }, select: { number: true } })
       const number = (last?.number ?? 0) + 1
 
@@ -97,6 +98,11 @@ export class JournalService {
         include: { lines: true },
       })
     })
+
+    // Export vers Business Central si activé (non bloquant)
+    BcSyncService.syncEntry(entry.id).catch((err) => console.error('[journal] Sync BC échouée (non-fatal):', err))
+
+    return entry
   }
 
   /** Contre-passe une écriture (inverse débits/crédits) et marque l'originale VOID. */

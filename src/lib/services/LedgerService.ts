@@ -28,13 +28,14 @@ const DEFAULT_ACCOUNTS: DefaultAccount[] = [
   { code: '6000', name: "Frais d'exploitation",          type: 'EXPENSE',   sort: 140 },
   { code: '6100', name: 'Frais bancaires',               type: 'EXPENSE',   sort: 150 },
   { code: '6900', name: "Écart d'arrondi",               type: 'EXPENSE',   sort: 160 },
+  { code: '6950', name: 'Gain / perte de change',        type: 'EXPENSE',   sort: 170 },
 ]
 
 interface DefaultMapping { key: string; label: string; code: string }
 
 export const MAPPING_KEYS = [
   'SALES_REVENUE', 'ACCOUNTS_RECEIVABLE', 'CASH', 'ACCOUNTS_PAYABLE',
-  'DEFAULT_EXPENSE', 'COGS', 'INVENTORY', 'SALES_DISCOUNTS', 'ROUNDING', 'RETAINED_EARNINGS',
+  'DEFAULT_EXPENSE', 'COGS', 'INVENTORY', 'SALES_DISCOUNTS', 'ROUNDING', 'RETAINED_EARNINGS', 'FX_GAIN_LOSS',
 ] as const
 
 const DEFAULT_MAPPINGS: DefaultMapping[] = [
@@ -48,6 +49,7 @@ const DEFAULT_MAPPINGS: DefaultMapping[] = [
   { key: 'SALES_DISCOUNTS',     label: 'Escomptes sur ventes',       code: '4100' },
   { key: 'ROUNDING',            label: "Écart d'arrondi",            code: '6900' },
   { key: 'RETAINED_EARNINGS',   label: 'Bénéfices non répartis',     code: '3100' },
+  { key: 'FX_GAIN_LOSS',        label: 'Gain / perte de change',     code: '6950' },
 ]
 
 interface DefaultTaxCode { code: string; name: string; rate: number; jurisdiction: string; collectedCode: string; paidCode: string; sort: number }

@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
-import { LedgerService, CurrencyService, FiscalService } from '@/lib/services'
+import { LedgerService, CurrencyService, FiscalService, SettingsService, BcSyncService } from '@/lib/services'
 
 /**
  * GET  /api/dashboard/accounting/config — seed + plan comptable, mappages, taxes, devises
@@ -20,16 +20,23 @@ export async function GET() {
 
   await LedgerService.seedDefaults()
 
-  const [accounts, mappings, taxCodes, currencies, base, fiscalYears] = await Promise.all([
+  const [accounts, mappings, taxCodes, currencies, base, fiscalYears, bcSettings] = await Promise.all([
     LedgerService.getAccounts(),
     LedgerService.getMappings(),
     prisma.taxCode.findMany({ orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }] }),
     CurrencyService.getCurrencies(),
     CurrencyService.getBase(),
     FiscalService.listYears(),
+    SettingsService.getMany(['accounting_bc_sync_enabled', 'bc_journal_batch']),
   ])
 
-  return NextResponse.json({ accounts, mappings, taxCodes, currencies, base, fiscalYears })
+  const bcSync = {
+    enabled: bcSettings.accounting_bc_sync_enabled === 'true',
+    batch: bcSettings.bc_journal_batch || '',
+    pending: await prisma.journalEntry.count({ where: { status: 'POSTED', bcSyncedAt: null } }),
+  }
+
+  return NextResponse.json({ accounts, mappings, taxCodes, currencies, base, fiscalYears, bcSync })
 }
 
 export async function POST(req: NextRequest) {
@@ -102,6 +109,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(await FiscalService.createYear(body.data.name, new Date(body.data.startDate)))
       case 'period:setStatus':
         return NextResponse.json(await FiscalService.setPeriodStatus(body.id, body.status))
+
+      // ── Synchronisation Business Central ─────────────────────────────────
+      case 'bcSync:setEnabled':
+        await SettingsService.set('accounting_bc_sync_enabled', body.value ? 'true' : 'false')
+        return NextResponse.json({ ok: true })
+      case 'bcSync:setBatch':
+        await SettingsService.set('bc_journal_batch', String(body.value ?? '').trim())
+        return NextResponse.json({ ok: true })
+      case 'bcSync:run':
+        return NextResponse.json(await BcSyncService.syncPending())
 
       default:
         return NextResponse.json({ error: 'Action inconnue' }, { status: 400 })

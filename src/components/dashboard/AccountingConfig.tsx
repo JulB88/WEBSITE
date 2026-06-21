@@ -9,7 +9,9 @@ interface Currency { code: string; symbol: string; name: string; isBase: boolean
 interface Period { id: string; name: string; status: string; startDate: string; endDate: string }
 interface FiscalYr { id: string; name: string; startDate: string; endDate: string; periods: Period[] }
 
-type Sub = 'accounts' | 'mappings' | 'taxes' | 'currencies' | 'fiscal'
+interface BcSync { enabled: boolean; batch: string; pending: number }
+
+type Sub = 'accounts' | 'mappings' | 'taxes' | 'currencies' | 'fiscal' | 'bcsync'
 
 const ACCOUNT_TYPES = [
   { value: 'ASSET', label: 'Actif' }, { value: 'LIABILITY', label: 'Passif' },
@@ -25,6 +27,7 @@ export default function AccountingConfig() {
   const [taxCodes, setTaxCodes] = useState<TaxCode[]>([])
   const [currencies, setCurrencies] = useState<Currency[]>([])
   const [fiscalYears, setFiscalYears] = useState<FiscalYr[]>([])
+  const [bcSync, setBcSync] = useState<BcSync>({ enabled: false, batch: '', pending: 0 })
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState('')
 
@@ -35,6 +38,7 @@ export default function AccountingConfig() {
       setAccounts(d.accounts ?? []); setMappings(d.mappings ?? [])
       setTaxCodes(d.taxCodes ?? []); setCurrencies(d.currencies ?? [])
       setFiscalYears(d.fiscalYears ?? [])
+      if (d.bcSync) setBcSync(d.bcSync)
     } finally { setLoading(false) }
   }, [])
   useEffect(() => { load() }, [load])
@@ -59,6 +63,7 @@ export default function AccountingConfig() {
     { key: 'taxes',      label: 'Codes de taxe' },
     { key: 'currencies', label: 'Devises' },
     { key: 'fiscal',     label: 'Exercices' },
+    { key: 'bcsync',     label: 'Sync Business Central' },
   ]
 
   return (
@@ -79,6 +84,65 @@ export default function AccountingConfig() {
       {sub === 'taxes'      && <Taxes taxCodes={taxCodes} accounts={accounts} mutate={mutate} />}
       {sub === 'currencies' && <Currencies currencies={currencies} mutate={mutate} />}
       {sub === 'fiscal'     && <Fiscal years={fiscalYears} mutate={mutate} />}
+      {sub === 'bcsync'     && <BcSync bc={bcSync} mutate={mutate} flash={flash} reload={load} />}
+    </div>
+  )
+}
+
+// ─── Synchronisation Business Central ──────────────────────────────────────────────
+function BcSync({ bc, mutate, flash, reload }: { bc: BcSync; mutate: (p: any) => Promise<boolean>; flash: (m: string) => void; reload: () => void }) {
+  const [batch, setBatch] = useState(bc.batch)
+  const [running, setRunning] = useState(false)
+
+  async function runSync() {
+    setRunning(true)
+    try {
+      const res = await fetch('/api/dashboard/accounting/config', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entity: 'bcSync', action: 'run' }),
+      })
+      const d = await res.json()
+      flash(res.ok ? `✓ ${d.message}` : `✗ ${d.error}`)
+      reload()
+    } finally { setRunning(false) }
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-6 max-w-xl">
+      <h3 className="font-semibold text-gray-900 mb-1">Synchronisation vers Business Central</h3>
+      <p className="text-xs text-gray-500 mb-5">
+        Optionnelle. Quand activée, chaque écriture postée est exportée vers le journal général de BC.
+        La comptabilité interne reste autonome si désactivée.
+      </p>
+
+      <div className="flex items-start gap-4 mb-4">
+        <button type="button" role="switch" aria-checked={bc.enabled}
+          onClick={() => mutate({ entity: 'bcSync', action: 'setEnabled', value: !bc.enabled })}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors mt-0.5 ${bc.enabled ? 'bg-indigo-600' : 'bg-gray-200'}`}>
+          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${bc.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+        </button>
+        <div>
+          <p className="text-sm font-medium text-gray-900">Activer la synchronisation BC</p>
+          <p className="text-xs text-gray-500 mt-0.5">{bc.enabled ? 'Activée — les nouvelles écritures sont exportées.' : 'Désactivée.'}</p>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Code du journal BC (batch)</label>
+        <div className="flex gap-2">
+          <input value={batch} onChange={(e) => setBatch(e.target.value)} placeholder="ex. GENERAL"
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          <button onClick={() => mutate({ entity: 'bcSync', action: 'setBatch', value: batch })} className="text-sm bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-700">Enregistrer</button>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">Laisse vide pour utiliser le premier journal disponible. Les numéros de compte BC doivent correspondre aux codes du plan comptable.</p>
+      </div>
+
+      <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
+        <button onClick={runSync} disabled={running || !bc.enabled}
+          className="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+          {running ? 'Synchronisation…' : 'Synchroniser maintenant'}
+        </button>
+        <span className="text-xs text-gray-500">{bc.pending} écriture(s) en attente de synchronisation</span>
+      </div>
     </div>
   )
 }
