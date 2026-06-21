@@ -50,11 +50,11 @@ const DEFAULT_MAPPINGS: DefaultMapping[] = [
   { key: 'RETAINED_EARNINGS',   label: 'Bénéfices non répartis',     code: '3100' },
 ]
 
-interface DefaultTaxCode { code: string; name: string; rate: number; jurisdiction: string; collectedCode: string; sort: number }
+interface DefaultTaxCode { code: string; name: string; rate: number; jurisdiction: string; collectedCode: string; paidCode: string; sort: number }
 
 const DEFAULT_TAX_CODES: DefaultTaxCode[] = [
-  { code: 'TPS', name: 'Taxe sur les produits et services (5 %)', rate: 0.05,    jurisdiction: 'CA-QC', collectedCode: '2310', sort: 10 },
-  { code: 'TVQ', name: 'Taxe de vente du Québec (9,975 %)',       rate: 0.09975, jurisdiction: 'CA-QC', collectedCode: '2320', sort: 20 },
+  { code: 'TPS', name: 'Taxe sur les produits et services (5 %)', rate: 0.05,    jurisdiction: 'CA-QC', collectedCode: '2310', paidCode: '1300', sort: 10 },
+  { code: 'TVQ', name: 'Taxe de vente du Québec (9,975 %)',       rate: 0.09975, jurisdiction: 'CA-QC', collectedCode: '2320', paidCode: '1300', sort: 20 },
 ]
 
 export class LedgerService {
@@ -89,14 +89,20 @@ export class LedgerService {
 
     // 4. Codes de taxe
     for (const t of DEFAULT_TAX_CODES) {
-      await prisma.taxCode.upsert({
+      const tc = await prisma.taxCode.upsert({
         where:  { code: t.code },
         update: {},
         create: {
           code: t.code, name: t.name, rate: t.rate, jurisdiction: t.jurisdiction,
-          isSystem: true, sortOrder: t.sort, collectedAccountId: idByCode.get(t.collectedCode) ?? null,
+          isSystem: true, sortOrder: t.sort,
+          collectedAccountId: idByCode.get(t.collectedCode) ?? null,
+          paidAccountId: idByCode.get(t.paidCode) ?? null,
         },
       })
+      // Mise à niveau unique : ajoute le compte CTI/RTI si absent (codes seedés avant la phase 4)
+      if (!tc.paidAccountId) {
+        await prisma.taxCode.update({ where: { id: tc.id }, data: { paidAccountId: idByCode.get(t.paidCode) ?? null } })
+      }
     }
   }
 

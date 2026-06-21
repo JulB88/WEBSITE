@@ -78,6 +78,12 @@ enum JournalStatus {
   VOID    // Annulée (par contre-passation)
 }
 
+enum BillStatus {
+  UNPAID   // Non payée
+  PARTIAL  // Partiellement payée
+  PAID     // Payée
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 model User {
@@ -530,4 +536,85 @@ model JournalLine {
 
   @@index([entryId])
   @@index([accountId])
+}
+
+// ─── Comptes fournisseurs (Phase 4) ──────────────────────────────────────────
+
+model Vendor {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  contactName String?
+  taxNumber   String?
+  termsDays   Int      @default(30)  // délai de paiement
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  bills       Bill[]
+
+  @@index([isActive])
+}
+
+model Bill {
+  id         String        @id @default(cuid())
+  vendorId   String
+  number     String?                      // n° de facture du fournisseur
+  date       DateTime
+  dueDate    DateTime?
+  memo       String?
+  total      Float
+  paidAmount Float         @default(0)
+  status     BillStatus    @default(UNPAID)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  vendor     Vendor        @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  lines      BillLine[]
+  payments   BillPayment[]
+
+  @@index([vendorId])
+  @@index([status])
+  @@index([date])
+}
+
+model BillLine {
+  id          String  @id @default(cuid())
+  billId      String
+  accountId   String                       // compte de charge / actif
+  description String?
+  amount      Float                         // montant hors taxe
+  taxCodeId   String?                        // taxe récupérable (CTI/RTI)
+  bill        Bill    @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([billId])
+}
+
+model BillPayment {
+  id         String   @id @default(cuid())
+  billId     String
+  amount     Float
+  method     String   @default("autre")
+  note       String?
+  recordedBy String?
+  createdAt  DateTime @default(now())
+  bill       Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([billId])
+}
+
+// Dépense au comptant (sans cycle de facture fournisseur)
+model Expense {
+  id            String   @id @default(cuid())
+  date          DateTime
+  vendorName    String?
+  accountId     String                       // compte de charge
+  description   String?
+  amount        Float                         // hors taxe
+  taxCodeId     String?
+  paidFromCode  String   @default("CASH")     // mappage : compte d'où sort l'argent
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  @@index([date])
 }

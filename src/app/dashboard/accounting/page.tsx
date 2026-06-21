@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from 'react'
 import AccountingConfig from '@/components/dashboard/AccountingConfig'
 import JournalEntries from '@/components/dashboard/JournalEntries'
 import FinancialStatements from '@/components/dashboard/FinancialStatements'
+import Payables from '@/components/dashboard/Payables'
 
-type Tab = 'summary' | 'sales' | 'receipts' | 'tax' | 'aging' | 'entries' | 'journal' | 'trial' | 'statements' | 'config'
+type Tab = 'summary' | 'sales' | 'receipts' | 'tax' | 'aging' | 'payables' | 'entries' | 'journal' | 'trial' | 'statements' | 'config'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'summary',    label: 'Sommaire' },
@@ -13,6 +14,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'receipts',   label: 'Encaissements' },
   { key: 'tax',        label: 'Taxes à remettre' },
   { key: 'aging',      label: 'Âge des comptes' },
+  { key: 'payables',   label: 'Fournisseurs' },
   { key: 'entries',    label: 'Écritures' },
   { key: 'journal',    label: 'Grand livre' },
   { key: 'trial',      label: 'Balance de vérification' },
@@ -42,7 +44,7 @@ export default function AccountingPage() {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    if (tab === 'config' || tab === 'entries' || tab === 'statements') { setLoading(false); return } // ces panneaux gèrent leurs données
+    if (tab === 'config' || tab === 'entries' || tab === 'statements' || tab === 'payables') { setLoading(false); return } // ces panneaux gèrent leurs données
     setLoading(true)
     try {
       const res = await fetch(`/api/dashboard/accounting?report=${tab}&from=${from}&to=${to}`)
@@ -71,8 +73,8 @@ export default function AccountingPage() {
         </p>
       </div>
 
-      {/* Période — masquée dans les onglets Paramètres / Écritures */}
-      {tab !== 'config' && tab !== 'entries' && (
+      {/* Période — masquée dans les onglets Paramètres / Écritures / Fournisseurs */}
+      {tab !== 'config' && tab !== 'entries' && tab !== 'payables' && (
       <div className="flex flex-wrap items-end gap-3 mb-5 bg-white border border-gray-200 rounded-xl p-4">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Du</label>
@@ -118,6 +120,8 @@ export default function AccountingPage() {
         <AccountingConfig />
       ) : tab === 'entries' ? (
         <JournalEntries />
+      ) : tab === 'payables' ? (
+        <Payables />
       ) : tab === 'statements' ? (
         <FinancialStatements from={from} to={to} />
       ) : loading ? (
