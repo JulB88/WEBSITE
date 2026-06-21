@@ -196,6 +196,8 @@ function Fiscal({ years, mutate }: { years: FiscalYr[]; mutate: (p: any) => Prom
 function Accounts({ accounts, mutate }: { accounts: Account[]; mutate: (p: any) => Promise<boolean> }) {
   const [form, setForm] = useState({ code: '', name: '', type: 'EXPENSE' })
   const [adding, setAdding] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ code: '', name: '', type: 'EXPENSE' })
 
   async function add() {
     if (!form.code.trim() || !form.name.trim()) return
@@ -203,6 +205,18 @@ function Accounts({ accounts, mutate }: { accounts: Account[]; mutate: (p: any) 
       setForm({ code: '', name: '', type: 'EXPENSE' }); setAdding(false)
     }
   }
+
+  function startEdit(a: Account) {
+    setEditId(a.id)
+    setEditForm({ code: a.code, name: a.name, type: a.type })
+  }
+
+  async function saveEdit(id: string) {
+    if (!editForm.code.trim() || !editForm.name.trim()) return
+    if (await mutate({ entity: 'account', action: 'update', id, data: editForm })) setEditId(null)
+  }
+
+  const inputCls = 'border border-gray-200 rounded-lg px-2 py-1.5 text-sm'
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-6">
@@ -212,12 +226,9 @@ function Accounts({ accounts, mutate }: { accounts: Account[]; mutate: (p: any) 
       </div>
       {adding && (
         <div className="flex flex-wrap gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
-          <input placeholder="Code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24" />
-          <input placeholder="Nom du compte" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 min-w-40" />
-          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+          <input placeholder="Code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={`${inputCls} w-24`} />
+          <input placeholder="Nom du compte" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={`${inputCls} flex-1 min-w-40`} />
+          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className={inputCls}>
             {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
           <button onClick={add} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">Ajouter</button>
@@ -226,21 +237,34 @@ function Accounts({ accounts, mutate }: { accounts: Account[]; mutate: (p: any) 
       <table className="w-full text-sm">
         <thead><tr className="bg-gray-50 text-left text-gray-500">
           <th className="px-3 py-2 font-medium">Code</th><th className="px-3 py-2 font-medium">Nom</th>
-          <th className="px-3 py-2 font-medium">Type</th><th className="px-3 py-2 font-medium">Statut</th><th className="px-3 py-2" />
+          <th className="px-3 py-2 font-medium">Type</th><th className="px-3 py-2 font-medium">Statut</th><th className="px-3 py-2 text-right" />
         </tr></thead>
         <tbody>
-          {accounts.map((a) => (
+          {accounts.map((a) => editId === a.id ? (
+            <tr key={a.id} className="border-t border-gray-50 bg-indigo-50/40">
+              <td className="px-3 py-2"><input value={editForm.code} onChange={(e) => setEditForm({ ...editForm, code: e.target.value })} className={`${inputCls} w-24 font-mono`} /></td>
+              <td className="px-3 py-2"><input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={`${inputCls} w-full`} /></td>
+              <td className="px-3 py-2"><select value={editForm.type} onChange={(e) => setEditForm({ ...editForm, type: e.target.value })} className={inputCls}>{ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></td>
+              <td className="px-3 py-2 text-gray-400 text-xs">{a.isActive ? 'Actif' : 'Inactif'}</td>
+              <td className="px-3 py-2 text-right whitespace-nowrap">
+                <button onClick={() => saveEdit(a.id)} className="text-xs text-green-600 hover:underline font-medium mr-2">Enregistrer</button>
+                <button onClick={() => setEditId(null)} className="text-xs text-gray-500 hover:underline">Annuler</button>
+              </td>
+            </tr>
+          ) : (
             <tr key={a.id} className="border-t border-gray-50">
               <td className="px-3 py-2 font-mono">{a.code}</td>
               <td className="px-3 py-2">{a.name} {a.isSystem && <span className="text-xs text-gray-400">(système)</span>}</td>
               <td className="px-3 py-2 text-gray-600">{typeLabel(a.type)}</td>
               <td className="px-3 py-2">
                 <button onClick={() => mutate({ entity: 'account', action: 'update', id: a.id, data: { isActive: !a.isActive } })}
-                  className={`text-xs px-2 py-0.5 rounded-full ${a.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  title="Cliquer pour activer/désactiver"
+                  className={`text-xs px-2 py-0.5 rounded-full ${a.isActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
                   {a.isActive ? 'Actif' : 'Inactif'}
                 </button>
               </td>
-              <td className="px-3 py-2 text-right">
+              <td className="px-3 py-2 text-right whitespace-nowrap">
+                <button onClick={() => startEdit(a)} className="text-xs text-indigo-600 hover:underline mr-2">Modifier</button>
                 {!a.isSystem && (
                   <button onClick={() => confirm(`Supprimer ${a.code} — ${a.name}?`) && mutate({ entity: 'account', action: 'delete', id: a.id })}
                     className="text-xs text-red-500 hover:underline">Supprimer</button>
@@ -250,6 +274,7 @@ function Accounts({ accounts, mutate }: { accounts: Account[]; mutate: (p: any) 
           ))}
         </tbody>
       </table>
+      <p className="text-xs text-gray-400 mt-3">Clique sur le statut pour activer/désactiver un compte. « Modifier » permet de changer le code, le nom et le type (même pour les comptes système).</p>
     </div>
   )
 }
