@@ -6,8 +6,10 @@ interface Account { id: string; code: string; name: string; type: string; isActi
 interface Mapping { id: string; key: string; label: string; accountId: string | null }
 interface TaxCode { id: string; code: string; name: string; rate: number; jurisdiction: string | null; registrationNumber: string | null; collectedAccountId: string | null; isActive: boolean; isSystem: boolean }
 interface Currency { code: string; symbol: string; name: string; isBase: boolean }
+interface Period { id: string; name: string; status: string; startDate: string; endDate: string }
+interface FiscalYr { id: string; name: string; startDate: string; endDate: string; periods: Period[] }
 
-type Sub = 'accounts' | 'mappings' | 'taxes' | 'currencies'
+type Sub = 'accounts' | 'mappings' | 'taxes' | 'currencies' | 'fiscal'
 
 const ACCOUNT_TYPES = [
   { value: 'ASSET', label: 'Actif' }, { value: 'LIABILITY', label: 'Passif' },
@@ -22,6 +24,7 @@ export default function AccountingConfig() {
   const [mappings, setMappings] = useState<Mapping[]>([])
   const [taxCodes, setTaxCodes] = useState<TaxCode[]>([])
   const [currencies, setCurrencies] = useState<Currency[]>([])
+  const [fiscalYears, setFiscalYears] = useState<FiscalYr[]>([])
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState('')
 
@@ -31,6 +34,7 @@ export default function AccountingConfig() {
       const d = await fetch('/api/dashboard/accounting/config').then((r) => r.json())
       setAccounts(d.accounts ?? []); setMappings(d.mappings ?? [])
       setTaxCodes(d.taxCodes ?? []); setCurrencies(d.currencies ?? [])
+      setFiscalYears(d.fiscalYears ?? [])
     } finally { setLoading(false) }
   }, [])
   useEffect(() => { load() }, [load])
@@ -54,6 +58,7 @@ export default function AccountingConfig() {
     { key: 'mappings',   label: 'Mappages de comptes' },
     { key: 'taxes',      label: 'Codes de taxe' },
     { key: 'currencies', label: 'Devises' },
+    { key: 'fiscal',     label: 'Exercices' },
   ]
 
   return (
@@ -73,6 +78,52 @@ export default function AccountingConfig() {
       {sub === 'mappings'   && <Mappings mappings={mappings} accounts={accounts} mutate={mutate} />}
       {sub === 'taxes'      && <Taxes taxCodes={taxCodes} accounts={accounts} mutate={mutate} />}
       {sub === 'currencies' && <Currencies currencies={currencies} mutate={mutate} />}
+      {sub === 'fiscal'     && <Fiscal years={fiscalYears} mutate={mutate} />}
+    </div>
+  )
+}
+
+// ─── Exercices ───────────────────────────────────────────────────────────────────
+const STATUS_LABEL: Record<string, string> = { OPEN: 'Ouverte', CLOSED: 'Fermée', LOCKED: 'Verrouillée' }
+function Fiscal({ years, mutate }: { years: FiscalYr[]; mutate: (p: any) => Promise<boolean> }) {
+  const [form, setForm] = useState({ name: '', startDate: new Date().getFullYear() + '-01-01' })
+
+  async function add() {
+    if (!form.name.trim() || !form.startDate) return
+    if (await mutate({ entity: 'fiscalYear', action: 'create', data: form })) setForm({ name: '', startDate: new Date().getFullYear() + '-01-01' })
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-6">
+      <h3 className="font-semibold text-gray-900 mb-1">Exercices financiers</h3>
+      <p className="text-xs text-gray-500 mb-4">Ferme ou verrouille une période pour empêcher tout nouveau postage à ces dates.</p>
+
+      <div className="flex flex-wrap gap-2 mb-5 p-3 bg-gray-50 rounded-lg">
+        <input placeholder="Nom (ex. Exercice 2026)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 min-w-44" />
+        <div>
+          <label className="block text-xs text-gray-500 mb-0.5">Début</label>
+          <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm" />
+        </div>
+        <button onClick={add} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 self-end">+ Créer (12 mois)</button>
+      </div>
+
+      {years.length === 0 && <p className="text-sm text-gray-400">Aucun exercice. Crée-en un pour gérer les clôtures de période.</p>}
+      {years.map((y) => (
+        <div key={y.id} className="mb-5">
+          <p className="text-sm font-semibold text-gray-800 mb-2">{y.name} <span className="text-xs text-gray-400 font-normal">({y.startDate.slice(0, 10)} → {y.endDate.slice(0, 10)})</span></p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {y.periods.map((p) => (
+              <div key={p.id} className="border border-gray-100 rounded-lg px-3 py-2 flex items-center justify-between">
+                <span className="text-sm font-mono">{p.name}</span>
+                <select value={p.status} onChange={(e) => mutate({ entity: 'period', action: 'setStatus', id: p.id, status: e.target.value })}
+                  className={`text-xs rounded px-1.5 py-1 border ${p.status === 'OPEN' ? 'text-green-700 border-green-200' : p.status === 'LOCKED' ? 'text-red-700 border-red-200' : 'text-amber-700 border-amber-200'}`}>
+                  {['OPEN', 'CLOSED', 'LOCKED'].map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

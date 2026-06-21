@@ -3,19 +3,21 @@
 import { useEffect, useState, useCallback } from 'react'
 import AccountingConfig from '@/components/dashboard/AccountingConfig'
 import JournalEntries from '@/components/dashboard/JournalEntries'
+import FinancialStatements from '@/components/dashboard/FinancialStatements'
 
-type Tab = 'summary' | 'sales' | 'receipts' | 'tax' | 'aging' | 'entries' | 'journal' | 'trial' | 'config'
+type Tab = 'summary' | 'sales' | 'receipts' | 'tax' | 'aging' | 'entries' | 'journal' | 'trial' | 'statements' | 'config'
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'summary',  label: 'Sommaire' },
-  { key: 'sales',    label: 'Journal des ventes' },
-  { key: 'receipts', label: 'Encaissements' },
-  { key: 'tax',      label: 'Taxes à remettre' },
-  { key: 'aging',    label: 'Âge des comptes' },
-  { key: 'entries',  label: 'Écritures' },
-  { key: 'journal',  label: 'Grand livre' },
-  { key: 'trial',    label: 'Balance de vérification' },
-  { key: 'config',   label: '⚙ Paramètres' },
+  { key: 'summary',    label: 'Sommaire' },
+  { key: 'sales',      label: 'Journal des ventes' },
+  { key: 'receipts',   label: 'Encaissements' },
+  { key: 'tax',        label: 'Taxes à remettre' },
+  { key: 'aging',      label: 'Âge des comptes' },
+  { key: 'entries',    label: 'Écritures' },
+  { key: 'journal',    label: 'Grand livre' },
+  { key: 'trial',      label: 'Balance de vérification' },
+  { key: 'statements', label: 'États financiers' },
+  { key: 'config',     label: '⚙ Paramètres' },
 ]
 
 const money = (n: number) => (n ?? 0).toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' $'
@@ -40,7 +42,7 @@ export default function AccountingPage() {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    if (tab === 'config' || tab === 'entries') { setLoading(false); return } // ces panneaux gèrent leurs données
+    if (tab === 'config' || tab === 'entries' || tab === 'statements') { setLoading(false); return } // ces panneaux gèrent leurs données
     setLoading(true)
     try {
       const res = await fetch(`/api/dashboard/accounting?report=${tab}&from=${from}&to=${to}`)
@@ -116,6 +118,8 @@ export default function AccountingPage() {
         <AccountingConfig />
       ) : tab === 'entries' ? (
         <JournalEntries />
+      ) : tab === 'statements' ? (
+        <FinancialStatements from={from} to={to} />
       ) : loading ? (
         <div className="py-20 text-center text-gray-400">Chargement…</div>
       ) : (

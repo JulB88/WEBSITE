@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
-import { LedgerService, CurrencyService } from '@/lib/services'
+import { LedgerService, CurrencyService, FiscalService } from '@/lib/services'
 
 /**
  * GET  /api/dashboard/accounting/config — seed + plan comptable, mappages, taxes, devises
@@ -20,15 +20,16 @@ export async function GET() {
 
   await LedgerService.seedDefaults()
 
-  const [accounts, mappings, taxCodes, currencies, base] = await Promise.all([
+  const [accounts, mappings, taxCodes, currencies, base, fiscalYears] = await Promise.all([
     LedgerService.getAccounts(),
     LedgerService.getMappings(),
     prisma.taxCode.findMany({ orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }] }),
     CurrencyService.getCurrencies(),
     CurrencyService.getBase(),
+    FiscalService.listYears(),
   ])
 
-  return NextResponse.json({ accounts, mappings, taxCodes, currencies, base })
+  return NextResponse.json({ accounts, mappings, taxCodes, currencies, base, fiscalYears })
 }
 
 export async function POST(req: NextRequest) {
@@ -95,6 +96,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       case 'currency:setRate':
         return NextResponse.json(await CurrencyService.setRate(body.code, Number(body.rate) || 1, new Date(body.asOf || Date.now())))
+
+      // ── Exercices / périodes ─────────────────────────────────────────────
+      case 'fiscalYear:create':
+        return NextResponse.json(await FiscalService.createYear(body.data.name, new Date(body.data.startDate)))
+      case 'period:setStatus':
+        return NextResponse.json(await FiscalService.setPeriodStatus(body.id, body.status))
 
       default:
         return NextResponse.json({ error: 'Action inconnue' }, { status: 400 })

@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
-import { AccountingService, TaxService, CHART_OF_ACCOUNTS } from '@/lib/services'
+import { AccountingService, TaxService, CHART_OF_ACCOUNTS, FinancialStatementsService } from '@/lib/services'
 
 /**
  * GET /api/dashboard/accounting?report=<nom>&from=YYYY-MM-DD&to=YYYY-MM-DD
@@ -50,6 +50,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ rows: await AccountingService.journalEntries(period, rates) })
       case 'trial':
         return NextResponse.json({ ...(await AccountingService.trialBalance(period, rates)), chart: CHART_OF_ACCOUNTS })
+      case 'balance':
+        return NextResponse.json({ statement: await FinancialStatementsService.balanceSheet(to) })
+      case 'income':
+        return NextResponse.json({ statement: await FinancialStatementsService.incomeStatement(from, to) })
       default:
         return NextResponse.json({ error: 'Rapport inconnu' }, { status: 400 })
     }

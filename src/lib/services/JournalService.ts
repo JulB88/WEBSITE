@@ -3,6 +3,7 @@ import type { JournalSource } from '@prisma/client'
 import { LedgerService } from './LedgerService'
 import { TaxService } from './TaxService'
 import { CurrencyService } from './CurrencyService'
+import { FiscalService } from './FiscalService'
 
 /**
  * JournalService — moteur de postage en partie double.
@@ -65,6 +66,9 @@ export class JournalService {
     const currencyCode = input.currencyCode ?? (await CurrencyService.getBase()).code
     const rate = await CurrencyService.rateToBase(currencyCode, input.date)
 
+    // Bloque le postage dans une période fermée/verrouillée
+    const fiscalPeriodId = await FiscalService.assertOpen(input.date)
+
     // Transaction : numéro séquentiel + écriture + lignes
     return prisma.$transaction(async (tx) => {
       const last = await tx.journalEntry.findFirst({ orderBy: { number: 'desc' }, select: { number: true } })
@@ -75,6 +79,7 @@ export class JournalService {
           number, date: input.date, memo: input.memo ?? null,
           source, sourceRef: input.sourceRef ?? null,
           status: 'POSTED', currencyCode, exchangeRate: rate,
+          fiscalPeriodId: fiscalPeriodId ?? null,
           createdBy: input.createdBy ?? null, postedAt: new Date(),
           lines: {
             create: lines.map((l) => ({
@@ -100,12 +105,15 @@ export class JournalService {
     if (!original) throw new Error('Écriture introuvable')
     if (original.status === 'VOID') throw new Error('Écriture déjà contre-passée')
 
+    const reversalDate = opts.date ?? new Date()
+    await FiscalService.assertOpen(reversalDate)
+
     const reversal = await prisma.$transaction(async (tx) => {
       const last = await tx.journalEntry.findFirst({ orderBy: { number: 'desc' }, select: { number: true } })
       const number = (last?.number ?? 0) + 1
       const entry = await tx.journalEntry.create({
         data: {
-          number, date: opts.date ?? new Date(),
+          number, date: reversalDate,
           memo: `Contre-passation de l'écriture n° ${original.number}`,
           source: 'REVERSAL', status: 'POSTED',
           currencyCode: original.currencyCode, exchangeRate: original.exchangeRate,
