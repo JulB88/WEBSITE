@@ -4,16 +4,17 @@ import { PrismaAdapter } from '@auth/prisma-adapter'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
 
-if (!process.env.NEXTAUTH_SECRET) {
-  throw new Error('NEXTAUTH_SECRET environment variable is required')
-}
-
 // How often (ms) to refresh role/businessCustomerId from DB.
 // Keeps revoked roles from persisting until token expiry.
 const ROLE_REFRESH_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
+  // Passed through rather than validated at module scope: `next build` evaluates
+  // this module while collecting page data, before any deployment env exists, so
+  // an eager throw fails the build. NextAuth itself raises `MissingSecret` at
+  // request time in production when this is undefined.
+  secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: 'jwt',
     maxAge: 24 * 60 * 60, // 24 hours
